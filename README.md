@@ -21,5 +21,8 @@ npm run dev                       # http://localhost:3000
 | `npm run test:e2e` | Tarayıcı testleri (önce `npm run build`) |
 | `npm run check` | Bütün kontroller |
 | `npm run format` | Kod biçimlendirme |
+| `npm run db:start` / `npm run db:stop` | Yerel Supabase'i açar / kapatır (Docker açık olmalı) |
+| `npm run db:test` | Veritabanı ve yetki testleri |
+| `npm run db:reset` | Yerel veritabanını sıfırlar (**yerel veriyi siler**) |
 
 Gizli anahtarlar `.env.local` dosyasında durur ve Git'e eklenmez. Örnek: `.env.example`.

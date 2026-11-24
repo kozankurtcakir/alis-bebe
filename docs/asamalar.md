@@ -6,7 +6,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 |---|---|---|---|
 | 0 | Kararlar, şema, taslaklar | Sorular 1–6 yanıtlı; şema ve taslaklar onaylı | Tamam (24.11.2026); taslaklar taslak olarak onaylandı, ileride geliştirilecek |
 | 1 | Kurulum | Temiz kurulum çalışır; testler geçer; depoda gizli anahtar yok | Tamam (24.11.2026); GitHub gönderimi ve CI başarılı |
-| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Sırada; kod öncesi tasarım onayı bekliyor |
+| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Sürüyor: veritabanı kısmı ve testleri hazır (24.11.2026); sayfalar bekliyor |
 | 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Bekliyor |
 | 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Bekliyor |
 | 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Bekliyor |
@@ -43,3 +43,6 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 - CSP `script-src 'unsafe-inline'` içeriyor; Aşama 13'te sıkılaştırılacak.
 - `favicon.ico` şablondan geliyor; logo kararıyla değişecek (Aşama 6).
 - GitHub deposu şimdilik herkese açık (proje sahibi 24.11.2026'da bilerek kabul etti); mümkün olunca özel yapılacak.
+- Yerel Supabase portları `0.0.0.0` üzerinde açılıyor; Docker'ın gelen bağlantı izni kapatılmadan ortak ağda çalıştırılmaz.
+- `audit_logs.ip` henüz doldurulmuyor; güvenilir istemci IP'si yayın altyapısıyla belirlenecek (Aşama 13).
+- Giriş denemesi sınırı IP başına; istekler Next.js sunucusundan gideceği için yayında gerçek istemci IP'siyle çalışması sağlanacak (Aşama 13).
