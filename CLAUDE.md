@@ -5,7 +5,7 @@ Bu dosya projenin ana talimat dosyasıdır. Her oturumda önce bu dosya okunur v
 ## Proje durumu
 
 - **Genel onay:** Proje sahibi 24.11.2026'da mimariyi, veritabanı taslağını, akışları, 15 aşamayı, görsel yönü ve bütçeyi onayladı; aşamaların sırayla kurulmasını istedi.
-- **Güncel aşama:** Aşama 0 ve 1 tamam (24.11.2026); sırada Aşama 2. Ayrıntı: `docs/asamalar.md`.
+- **Güncel aşama:** Aşama 0, 1, 2 ve 3 tamam (24.11.2026); sırada Aşama 4. Ayrıntı: `docs/asamalar.md`.
 - Bir karar kesinleştiğinde veya aşama bittiğinde bu bölüm, "Kararlar" bölümü ve `docs/asamalar.md` güncellenir.
 
 ## Belgeler
@@ -118,6 +118,10 @@ Altyapı bunları destekler; ancak hiçbir çıktı hukuki danışmanlık yerine
 - Alan adı `alisbebe.com` (satın almayı proje sahibi yapar).
 - GitHub deposu `kozankurtcakir/alis-bebe`; proje sahibinin kararıyla şimdilik herkese açık. Gizli bilgi ve gerçek veri commit edilmez.
 - Sayfa taslakları taslak olarak onaylandı (24.11.2026); ileride geliştirilecek.
+- Personel önce normal üye olur, sonra rol alır; davet sistemi yok. Rollerin izinleri ilk sürümde sabittir, migration ve testle değişir.
+- İlk Super Admin komutla oluşturulur. İki adımlı doğrulamayı yalnızca Super Admin sıfırlar; yayında en az iki Super Admin bulunur.
+- Ürün kapsamı: çocuk ve bebek giyim, yetişkin giyim (tişört, eşofman, şort, hırka), kadın takım ve kişisel bakım. Kişisel bakım, mevzuat netleşene kadar yayınlanamaz.
+- SKU'yu sistem önerir, personel değiştirebilir. KDV oranı ürün başına elle girilir; hazır oran yoktur. Özgün fotoğraf saklanmaz.
 - Sabit yayın tarihi yok; aşama bazlı ilerlenir.
 - Geliştirme bilgisayarı: Windows 11, 16 GB RAM. Docker zorlanırsa ücretsiz bulut geliştirme projesine geçilir.
 - Görsel yön: Odunpazarı evleri. Petrol `#17454F`, hardal `#F4B942` (üzerinde petrol yazı), nar `#B93A4B`, nane `#CFE8E1`, zemin `#F4F9F8`. Yazı tipi: Baloo 2 ve Figtree.

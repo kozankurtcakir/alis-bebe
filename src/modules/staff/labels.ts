@@ -1,3 +1,5 @@
+import { catalogActionLabel } from "@/modules/catalog/labels";
+
 export const roleLabels = {
   super_admin: "Super Admin",
   admin: "Admin",
@@ -25,4 +27,5 @@ const actionLabels: Record<string, string> = {
   "mfa.reset": "İki adımlı doğrulama sıfırlandı",
 };
 
-export const actionLabel = (key: string) => actionLabels[key] ?? key;
+export const actionLabel = (key: string) =>
+  actionLabels[key] ?? catalogActionLabel(key) ?? key;

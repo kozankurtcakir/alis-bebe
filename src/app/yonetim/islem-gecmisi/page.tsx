@@ -3,20 +3,21 @@ import Link from "next/link";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase";
 import { requirePermission } from "@/modules/auth/access";
+import { describeChange } from "@/modules/catalog/labels";
 import { actionLabel, roleLabel } from "@/modules/staff/labels";
 
 export const metadata: Metadata = { title: "İşlem geçmişi" };
 
 const PAGE_SIZE = 50;
 const pageSchema = z.coerce.number().int().min(1).max(10_000).catch(1);
-const change = z.object({ role: z.string().optional() }).nullable();
+const change = z.record(z.string(), z.unknown()).nullable();
 const logsSchema = z.array(
   z.object({
     id: z.string(),
     created_at: z.string(),
     actor_email: z.string().nullable(),
     action: z.string(),
-    target_email: z.string().nullable(),
+    target: z.string().nullable(),
     before: change,
     after: change,
   }),
@@ -53,15 +54,20 @@ export default async function AuditPage({
             <li key={log.id} className="space-y-1 py-4">
               <p className="font-semibold">
                 {actionLabel(log.action)}
-                {role && `: ${roleLabel(role)}`}
+                {typeof role === "string" && `: ${roleLabel(role)}`}
               </p>
               <p className="break-words">
-                {log.target_email ?? "—"}
+                {log.target ?? "—"}
                 <span className="text-gri">
                   {" "}
                   · yapan: {log.actor_email ?? "sistem"}
                 </span>
               </p>
+              {describeChange(log.before, log.after).map((line) => (
+                <p key={line} className="text-sm break-words">
+                  {line}
+                </p>
+              ))}
               <time dateTime={log.created_at} className="text-sm text-gri">
                 {dateFormat.format(new Date(log.created_at))}
               </time>

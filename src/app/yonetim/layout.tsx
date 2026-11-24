@@ -24,6 +24,17 @@ export default function AdminLayout({
 
 const links = [
   { href: "/yonetim", label: "Özet", permission: "dashboard.read" },
+  { href: "/yonetim/katalog", label: "Ürünler", permission: "catalog.read" },
+  {
+    href: "/yonetim/katalog/kategoriler",
+    label: "Kategoriler",
+    permission: "catalog.read",
+  },
+  {
+    href: "/yonetim/katalog/listeler",
+    label: "Seçim listeleri",
+    permission: "catalog.read",
+  },
   { href: "/yonetim/personel", label: "Personel", permission: "staff.manage" },
   {
     href: "/yonetim/islem-gecmisi",

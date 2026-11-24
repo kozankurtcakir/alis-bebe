@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    // Ürün görseli 4 MB; fazlası form alanlarının payıdır. Vercel'in sınırı 4,5 MB.
+    serverActions: { bodySizeLimit: "4400kb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

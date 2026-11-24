@@ -6,9 +6,9 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 |---|---|---|---|
 | 0 | Kararlar, şema, taslaklar | Sorular 1–6 yanıtlı; şema ve taslaklar onaylı | Tamam (24.11.2026); taslaklar taslak olarak onaylandı, ileride geliştirilecek |
 | 1 | Kurulum | Temiz kurulum çalışır; testler geçer; depoda gizli anahtar yok | Tamam (24.11.2026); GitHub gönderimi ve CI başarılı |
-| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Teknik kriterler tamam (24.11.2026): veritabanı, üyelik, iki adımlı doğrulama, personel ve işlem geçmişi ekranları; proje sahibinin denemesi ve onayı bekliyor |
-| 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Bekliyor |
-| 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Bekliyor |
+| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Tamam (24.11.2026); proje sahibi denedi ve onayladı |
+| 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Tamam (24.11.2026); proje sahibi onayladı |
+| 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Sırada; kod öncesi tasarım onayı bekliyor |
 | 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Bekliyor |
 | 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Bekliyor |
 | 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Bekliyor |
@@ -30,6 +30,8 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 ## Proje sahibinin paralel işleri
 
+- [ ] Kişisel bakım: hukukçuyla ürün güvenliği ve kozmetik mevzuatı. Netleşene kadar sistem bu ürünleri yayınlamaz.
+- [ ] Mali müşavir: ürün türlerine göre KDV oranları (panelde hazır oran yok)
 - [ ] TÜRKPATENT marka araması, ardından `alisbebe.com` satın alma
 - [ ] Hukukçu: yurt dışında veri barındırma (KVKK m.9), ETBİS, İYS, ürün güvenliği, cayma/iade
 - [ ] Mali müşavir: şirket türü, e-Arşiv, KDV, TCKN, kapıda ödeme belgesi
@@ -39,6 +41,9 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 ## Teknik borçlar
 
+- Panel araması "İ/ı" farkını tam gözetmiyor; Türkçe arama Aşama 6'da kurulacak.
+- Aynı ürünü iki kişi aynı anda düzenlerse son kaydeden geçerli olur; önceki değer işlem geçmişinde kalır.
+- Depoya yükleme yetkisi olan personel, paneli atlayıp WebP diye işaretlenmiş başka içerik yükleyebilir; site bunu yalnızca görsel olarak sunar (`nosniff`).
 - ESLint 9 destek dışı; Next eklentileri ESLint 10'u destekleyince yükseltilecek (yalnızca geliştirme aracı).
 - CSP `script-src 'unsafe-inline'` içeriyor; Aşama 13'te sıkılaştırılacak.
 - `favicon.ico` şablondan geliyor; logo kararıyla değişecek (Aşama 6).

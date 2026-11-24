@@ -90,7 +90,7 @@ select set_eq(
      where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
        and has_function_privilege('authenticated', p.oid, 'execute') $$,
   array['my_access', 'assign_role', 'revoke_role', 'set_user_active', 'reset_mfa',
-    'list_staff', 'find_user_by_email', 'list_audit_logs', 'is_active_session', 'has_permission'],
+    'list_staff', 'find_user_by_email', 'list_audit_logs', 'set_product_status', 'set_product_categories', 'is_active_session', 'has_permission'],
   'giriş yapan kullanıcı yalnızca listedeki fonksiyonları çalıştırabilir');
 
 select is_empty(
@@ -108,8 +108,9 @@ select is_empty(
 select is_empty(
   $$ select c.relname from pg_class c, unnest(array['insert', 'update', 'delete', 'truncate']) x
      where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+       and c.relname in ('profiles', 'roles', 'permissions', 'role_permissions', 'user_roles', 'audit_logs')
        and has_table_privilege('authenticated', c.oid, x) $$,
-  'giriş yapan kullanıcının tablo genelinde yazma hakkı yok');
+  'kimlik ve yetki tablolarında tablo genelinde yazma hakkı yok');
 
 -- ---------------------------------------------------------------------------
 -- Rol-izin matrisi (docs/kurallar.md): 7 rol x 34 izin

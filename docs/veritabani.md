@@ -30,15 +30,17 @@ Durum: taslak onaylandı. Aşama 2'de yalnızca o aşamanın tabloları kurulur;
 |---|---|---|
 | `categories` | `parent_id?`, `name`, `slug`, `sort_order`, `is_active` | `slug` benzersiz; döngü engellenir |
 | `brands` | `name`, `slug` | Benzersiz |
-| `colors` | `name`, `hex`, `slug` | Benzersiz |
-| `sizes` | `name`, `age_min_months?`, `age_max_months?`, `sort_order` | Örnek: 3-6 Ay, 2 Yaş |
-| `products` | `name`, `slug`, `description`, `brand_id?`, `material`, `care?`, `gender`, `vat_bps`, `status`, `archived_at?` | `status`: `draft`, `published`, `archived` |
+| `colors` | `name`, `hex`, `slug`, `code` | Benzersiz; `code` SKU önerisinde kullanılır |
+| `sizes` | `size_group`, `name`, `code`, `age_min_months?`, `age_max_months?`, `sort_order` | Grup: `baby`, `child`, `adult`, `volume`, `one_size` |
+| `products` | `product_no`, `name`, `slug`, `description`, `product_type`, `audience`, `brand_id?`, `material`, `care?`, `gender`, `vat_bps`, `status`, `archived_at?` | `status`: `draft`, `published`, `archived`; yalnızca `set_product_status` ile değişir. `product_type`: `clothing`, `personal_care` (yayınlanamaz) |
 | `product_categories` | `product_id`, `category_id`, `is_primary` | Ürün başına tek ana kategori |
-| `product_variants` | `product_id`, `color_id`, `size_id`, `sku`, `barcode?`, `price`, `compare_at_price?`, `desi?`, `is_active` | `(product, color, size)` ve `sku` benzersiz; barkod doluysa benzersiz ve metin |
+| `product_variants` | `product_id`, `color_id?`, `size_id?`, `sku`, `barcode?`, `price`, `compare_at_price?`, `desi?`, `is_active` | `(product, color, size)` ve `sku` benzersiz; barkod doluysa benzersiz ve metin |
 | `variant_costs` | `variant_id`, `cost` | Yalnızca `costs.read` izni |
 | `price_history` | `variant_id`, `old_price`, `new_price`, `changed_by`, `changed_at` | Tetikleyici yazar; yalnızca ekleme |
-| `product_images` | `product_id`, `color_id?`, `path`, `alt`, `sort_order` | Alternatif metin zorunlu |
+| `product_images` | `product_id`, `color_id?`, `path`, `width`, `height`, `alt`, `sort_order` | Alternatif metin zorunlu |
 | `size_charts` | `name`, `category_id?`, `rows jsonb` | Boy/kilo tablosu |
+
+Yayın şartı: açıklama, malzeme, ana kategori, aktif varyant (giyimde renk ve bedenli) ve görsel. Şart, yayındayken de işlem sonunda denetlenir. Ürün ve varyant silinmez. Katalog değişiklikleri `audit_logs`'a yazılır.
 
 ## Stok (Aşama 4)
 
@@ -122,6 +124,6 @@ Değişmez eşitlikler:
 
 | Bucket | Erişim | İçerik |
 |---|---|---|
-| `product-images` | Herkes okur | JPEG, PNG, WebP; SVG yasak |
+| `product-images` | Herkes okur | Depoda yalnızca WebP (en fazla 4 MB); JPEG, PNG ve WebP kabul edilip WebP olarak yeniden üretilir; SVG yasak |
 | `imports` | Özel | Excel |
 | `documents` | Özel | Dekont, fatura, etiket; süreli bağlantı |
