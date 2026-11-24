@@ -35,6 +35,7 @@ const links = [
     label: "Seçim listeleri",
     permission: "catalog.read",
   },
+  { href: "/yonetim/stok", label: "Stok", permission: "stock.read" },
   { href: "/yonetim/personel", label: "Personel", permission: "staff.manage" },
   {
     href: "/yonetim/islem-gecmisi",

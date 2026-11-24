@@ -71,6 +71,7 @@ const fieldLabels: Record<string, string> = {
   price: "Fiyat",
   compare_at_price: "Eski fiyat",
   cost: "Maliyet",
+  critical_level: "Kritik seviye",
   sku: "SKU",
   barcode: "Barkod",
   vat_bps: "KDV (baz puan)",

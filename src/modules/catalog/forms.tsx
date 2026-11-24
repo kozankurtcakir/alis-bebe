@@ -1,98 +1,12 @@
 "use client";
 
-import {
-  startTransition,
-  useActionState,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import type { CatalogState } from "./actions";
+import { useState } from "react";
+import { CheckField, Field, SelectField } from "@/components/fields";
+import { PanelForm } from "@/components/panel-form";
 import { createVariants, uploadImage } from "./actions";
-import { CheckField, Field, SelectField } from "./fields";
 import { sizeGroupLabels } from "./labels";
 import type { Lists } from "./queries";
 import { suggestSku } from "./text";
-
-type FormProps = {
-  action: (state: CatalogState, form: FormData) => Promise<CatalogState>;
-  hidden?: Record<string, string>;
-  submit: string;
-  /** Ekran okuyucuda aynı adlı düğmeleri ayırır. */
-  subject?: string;
-  confirm?: string;
-  /** Yazma izni olmayan kişi alanları görür ama değiştiremez. */
-  readOnly?: boolean;
-  /** Ekleme formları başarıdan sonra boşalır. */
-  resetOnOk?: boolean;
-  /** Göndermeden önceki tarayıcı kontrolü; hata metni döndürürse gönderilmez. */
-  check?: (form: FormData) => string | undefined;
-  children?: ReactNode;
-};
-
-export function CatalogForm({
-  action,
-  hidden = {},
-  submit,
-  subject,
-  confirm,
-  readOnly,
-  resetOnOk,
-  check,
-  children,
-}: FormProps) {
-  const [state, formAction, pending] = useActionState(action, {});
-  const [problem, setProblem] = useState<string>();
-  const ref = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok && resetOnOk) ref.current?.reset();
-  }, [state, resetOnOk]);
-
-  const error = problem ?? state.error;
-  return (
-    <form
-      ref={ref}
-      action={formAction}
-      onSubmit={(e) => {
-        // React, hata olsa da formu boşaltır; yazılanlar kaybolmasın diye elle gönderilir.
-        e.preventDefault();
-        if (confirm && !window.confirm(confirm)) return;
-        const form = new FormData(e.currentTarget);
-        const found = check?.(form);
-        setProblem(found);
-        if (!found) startTransition(() => formAction(form));
-      }}
-    >
-      <fieldset disabled={readOnly} className="space-y-4">
-        {Object.entries(hidden).map(([name, value]) => (
-          <input key={name} type="hidden" name={name} value={value} />
-        ))}
-        {children}
-        {!readOnly && (
-          <button
-            disabled={pending}
-            className="min-h-11 rounded-xl border border-petrol px-4 font-semibold hover:bg-nane disabled:opacity-60"
-          >
-            {pending ? "Bekleyin…" : submit}
-            {subject && <span className="sr-only"> ({subject})</span>}
-          </button>
-        )}
-      </fieldset>
-      {error && (
-        <p role="alert" className="mt-2 text-nar">
-          {error}
-        </p>
-      )}
-      {!error && state.ok && (
-        <p role="status" className="mt-2">
-          {state.ok}
-        </p>
-      )}
-    </form>
-  );
-}
 
 const MAX_MB = 4;
 
@@ -104,7 +18,7 @@ export function ImageUploadForm({
   colors: { value: string; label: string }[];
 }) {
   return (
-    <CatalogForm
+    <PanelForm
       action={uploadImage}
       hidden={{ product }}
       submit="Görseli yükle"
@@ -137,7 +51,7 @@ export function ImageUploadForm({
         empty="Bütün renkler"
         options={colors}
       />
-    </CatalogForm>
+    </PanelForm>
   );
 }
 
@@ -231,7 +145,7 @@ export function VariantCreator({
       )}
 
       {/* Form boş kalsa da takılı durur; başarı iletisi kaybolmaz. */}
-      <CatalogForm
+      <PanelForm
         action={createVariants}
         hidden={{ product }}
         submit={`${rows.length} varyantı ekle`}
@@ -271,7 +185,7 @@ export function VariantCreator({
             />
           </fieldset>
         ))}
-      </CatalogForm>
+      </PanelForm>
     </div>
   );
 }

@@ -5,6 +5,8 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import type { PanelState } from "@/components/panel-form";
+import { dbErrorMessage } from "@/lib/db-error";
 import { parsePrice } from "@/lib/money";
 import { createClient } from "@/lib/supabase";
 import { requirePermission } from "@/modules/auth/access";
@@ -19,8 +21,7 @@ import {
 } from "./labels";
 import { parseRows, slugify } from "./text";
 
-export type CatalogState = { ok?: string; error?: string };
-type Action = (state: CatalogState, form: FormData) => Promise<CatalogState>;
+type Action = (state: PanelState, form: FormData) => Promise<PanelState>;
 
 const BUCKET = "product-images";
 
@@ -128,9 +129,9 @@ const productSchema = z.object({
 // Ortak işler
 // ---------------------------------------------------------------------------
 
-const INVALID: CatalogState = { error: "Geçersiz istek." };
+const INVALID: PanelState = { error: "Geçersiz istek." };
 
-const firstIssues = (error: z.ZodError): CatalogState => ({
+const firstIssues = (error: z.ZodError): PanelState => ({
   error: [...new Set(error.issues.map((i) => i.message))].join(" "),
 });
 
@@ -141,33 +142,9 @@ const uniqueMessages: Record<string, string> = {
     "Bu renk ve beden zaten ekli.",
 };
 
-function failure(
+const failure = (
   error: Pick<PostgrestError, "code" | "message">,
-): CatalogState {
-  switch (error.code) {
-    case "23505": {
-      const name = /constraint "(\w+)"/.exec(error.message)?.[1] ?? "";
-      return {
-        error:
-          uniqueMessages[name] ??
-          "Aynı ad, adres veya kodla başka bir kayıt var.",
-      };
-    }
-    case "23503":
-      return { error: "Kayıt kullanımda olduğu için bu işlem yapılamaz." };
-    case "23514":
-      return { error: "Girilen değerlerden biri kurallara uymuyor." };
-  }
-  // Bu kodlardaki Türkçe açıklamaları kendi fonksiyonlarımız yazar.
-  if (
-    ["42501", "22023", "P0002"].includes(error.code) &&
-    !/permission denied|row-level security/.test(error.message)
-  ) {
-    return { error: error.message };
-  }
-  console.error("Katalog işlemi başarısız:", error.code);
-  return { error: "İşlem yapılamadı. Biraz sonra yeniden deneyin." };
-}
+): PanelState => ({ error: dbErrorMessage(error, uniqueMessages) });
 
 /** Adres boşsa addan üretilir; yazıldıysa da güvenli biçime çevrilir. */
 const withSlug = <T extends { name: string; slug: string }>(row: T) => ({
@@ -182,7 +159,7 @@ async function save(
   table: string,
   rowId: string | null,
   row: Record<string, unknown>,
-): Promise<CatalogState> {
+): Promise<PanelState> {
   const supabase = await createClient();
   const request = rowId
     ? supabase.from(table).update(row).eq("id", rowId)
@@ -199,7 +176,7 @@ async function saveListItem(
   table: string,
   schema: z.ZodType<Record<string, unknown>>,
   form: FormData,
-): Promise<CatalogState> {
+): Promise<PanelState> {
   await requirePermission("catalog.write");
   const input = schema.safeParse(Object.fromEntries(form));
   const rowId = optionalId.safeParse(form.get("id") ?? "");

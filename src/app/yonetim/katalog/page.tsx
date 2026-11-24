@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { z } from "zod";
 import { requirePermission } from "@/modules/auth/access";
-import { Field, SelectField } from "@/modules/catalog/fields";
+import { Field, SelectField } from "@/components/fields";
 import { keysOf, statusLabels, toOptions } from "@/modules/catalog/labels";
 import { listProducts } from "@/modules/catalog/queries";
 

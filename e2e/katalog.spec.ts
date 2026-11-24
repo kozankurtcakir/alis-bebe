@@ -19,6 +19,7 @@ function removeProduct(name: string) {
        delete from public.variant_costs where variant_id in ${variants};
        delete from public.product_images where product_id = ${product};
        delete from public.product_categories where product_id = ${product};
+       delete from public.inventory where variant_id in ${variants};
        delete from public.product_variants where product_id = ${product};
        set constraints all immediate;
        delete from public.products where name = '${name}';

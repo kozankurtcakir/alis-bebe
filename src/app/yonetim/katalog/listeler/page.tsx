@@ -8,8 +8,8 @@ import {
   saveSize,
   saveSizeChart,
 } from "@/modules/catalog/actions";
-import { Field, SelectField, TextArea } from "@/modules/catalog/fields";
-import { CatalogForm } from "@/modules/catalog/forms";
+import { Field, SelectField, TextArea } from "@/components/fields";
+import { PanelForm } from "@/components/panel-form";
 import { sizeGroupLabels, toOptions } from "@/modules/catalog/labels";
 import { getLists, type Lists } from "@/modules/catalog/queries";
 import { flattenTree, formatRows } from "@/modules/catalog/text";
@@ -235,7 +235,7 @@ function ListSection<T extends Item>({
                 {item.name}
               </summary>
               <div className="space-y-4 pb-5">
-                <CatalogForm
+                <PanelForm
                   action={action}
                   hidden={{ id: item.id }}
                   submit="Kaydet"
@@ -243,9 +243,9 @@ function ListSection<T extends Item>({
                   readOnly={readOnly}
                 >
                   {fields(item)}
-                </CatalogForm>
+                </PanelForm>
                 {!readOnly && (
-                  <CatalogForm
+                  <PanelForm
                     action={deleteListItem}
                     hidden={{ table, id: item.id }}
                     submit="Sil"
@@ -264,9 +264,9 @@ function ListSection<T extends Item>({
             {single} ekle
           </summary>
           <div className="pb-5">
-            <CatalogForm action={action} submit={`${single} ekle`} resetOnOk>
+            <PanelForm action={action} submit={`${single} ekle`} resetOnOk>
               {fields()}
-            </CatalogForm>
+            </PanelForm>
           </div>
         </details>
       )}

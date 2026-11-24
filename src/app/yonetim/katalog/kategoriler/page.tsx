@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/modules/auth/access";
 import { deleteListItem, saveCategory } from "@/modules/catalog/actions";
-import { CheckField, Field, SelectField } from "@/modules/catalog/fields";
-import { CatalogForm } from "@/modules/catalog/forms";
+import { CheckField, Field, SelectField } from "@/components/fields";
+import { PanelForm } from "@/components/panel-form";
 import { getLists, type Lists } from "@/modules/catalog/queries";
 import { flattenTree } from "@/modules/catalog/text";
 
@@ -74,7 +74,7 @@ export default async function CategoriesPage() {
                 {!c.is_active && " · kapalı"}
               </summary>
               <div className="space-y-4 pb-5">
-                <CatalogForm
+                <PanelForm
                   action={saveCategory}
                   hidden={{ id: c.id }}
                   submit="Kaydet"
@@ -82,9 +82,9 @@ export default async function CategoriesPage() {
                   readOnly={readOnly}
                 >
                   {fields(c)}
-                </CatalogForm>
+                </PanelForm>
                 {!readOnly && (
-                  <CatalogForm
+                  <PanelForm
                     action={deleteListItem}
                     hidden={{ table: "categories", id: c.id }}
                     submit="Sil"
@@ -102,9 +102,9 @@ export default async function CategoriesPage() {
           <h2 id="ekle" className="font-baslik text-xl font-bold">
             Kategori ekle
           </h2>
-          <CatalogForm action={saveCategory} submit="Kategori ekle" resetOnOk>
+          <PanelForm action={saveCategory} submit="Kategori ekle" resetOnOk>
             {fields()}
-          </CatalogForm>
+          </PanelForm>
         </section>
       )}
     </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/modules/auth/access";
 import { createProduct } from "@/modules/catalog/actions";
-import { CatalogForm } from "@/modules/catalog/forms";
+import { PanelForm } from "@/components/panel-form";
 import { ProductFields } from "@/modules/catalog/product-fields";
 import { getLists } from "@/modules/catalog/queries";
 
@@ -18,9 +18,9 @@ export default async function NewProductPage() {
         Ürün taslak olarak açılır. Kategori, varyant ve görsel sonraki sayfada
         eklenir.
       </p>
-      <CatalogForm action={createProduct} submit="Ürünü oluştur">
+      <PanelForm action={createProduct} submit="Ürünü oluştur">
         <ProductFields brands={brands} />
-      </CatalogForm>
+      </PanelForm>
     </div>
   );
 }

@@ -90,7 +90,9 @@ select set_eq(
      where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
        and has_function_privilege('authenticated', p.oid, 'execute') $$,
   array['my_access', 'assign_role', 'revoke_role', 'set_user_active', 'reset_mfa',
-    'list_staff', 'find_user_by_email', 'list_audit_logs', 'set_product_status', 'set_product_categories', 'is_active_session', 'has_permission'],
+    'list_staff', 'find_user_by_email', 'list_audit_logs', 'set_product_status', 'set_product_categories',
+    'adjust_stock', 'reverse_stock_movement', 'set_critical_level', 'list_stock', 'stock_summary',
+    'list_stock_movements', 'is_active_session', 'has_permission'],
   'giriş yapan kullanıcı yalnızca listedeki fonksiyonları çalıştırabilir');
 
 select is_empty(

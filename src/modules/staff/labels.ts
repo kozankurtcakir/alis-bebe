@@ -24,6 +24,7 @@ const actionLabels: Record<string, string> = {
   "role.bootstrap": "İlk Super Admin oluşturuldu",
   "user.activate": "Hesap açıldı",
   "user.deactivate": "Hesap kapatıldı",
+  "stock.critical_level": "Kritik stok seviyesi değişti",
   "mfa.reset": "İki adımlı doğrulama sıfırlandı",
 };
 

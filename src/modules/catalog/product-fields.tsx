@@ -1,4 +1,4 @@
-import { Field, SelectField, TextArea } from "./fields";
+import { Field, SelectField, TextArea } from "@/components/fields";
 import {
   audienceLabels,
   genderLabels,

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
+import { PanelForm } from "@/components/panel-form";
 import { notFound } from "next/navigation";
 import { formatPrice, priceInput } from "@/lib/money";
 import { requirePermission } from "@/modules/auth/access";
@@ -12,12 +14,8 @@ import {
   updateProduct,
   updateVariant,
 } from "@/modules/catalog/actions";
-import { CheckField, Field, SelectField } from "@/modules/catalog/fields";
-import {
-  CatalogForm,
-  ImageUploadForm,
-  VariantCreator,
-} from "@/modules/catalog/forms";
+import { CheckField, Field, SelectField } from "@/components/fields";
+import { ImageUploadForm, VariantCreator } from "@/modules/catalog/forms";
 import { statusLabels } from "@/modules/catalog/labels";
 import { ProductFields } from "@/modules/catalog/product-fields";
 import { getLists, getProduct } from "@/modules/catalog/queries";
@@ -78,7 +76,7 @@ export default async function ProductPage({
         {!readOnly && (
           <div className="flex flex-wrap gap-3">
             {statusSteps[product.status].map((step) => (
-              <CatalogForm
+              <PanelForm
                 key={step.status}
                 action={setStatus}
                 hidden={{ id: product.id, status: step.status }}
@@ -98,21 +96,21 @@ export default async function ProductPage({
         <h2 id="bilgiler" className={sectionTitle}>
           Bilgiler
         </h2>
-        <CatalogForm
+        <PanelForm
           action={updateProduct}
           hidden={{ id: product.id }}
           submit="Bilgileri kaydet"
           readOnly={readOnly}
         >
           <ProductFields brands={lists.brands} product={product} />
-        </CatalogForm>
+        </PanelForm>
       </section>
 
       <section aria-labelledby="kategoriler" className="space-y-4">
         <h2 id="kategoriler" className={sectionTitle}>
           Kategoriler
         </h2>
-        <CatalogForm
+        <PanelForm
           action={setCategories}
           hidden={{ id: product.id }}
           submit="Kategorileri kaydet"
@@ -144,7 +142,7 @@ export default async function ProductPage({
               ))}
             </div>
           </fieldset>
-        </CatalogForm>
+        </PanelForm>
       </section>
 
       <section aria-labelledby="varyantlar" className="space-y-4">
@@ -163,7 +161,16 @@ export default async function ProductPage({
                   {!v.is_active && " · pasif"}
                 </summary>
                 <div className="space-y-4 pb-5">
-                  <CatalogForm
+                  {permissions.includes("stock.read") && (
+                    <Link
+                      href={`/yonetim/stok/${v.id}`}
+                      className="inline-flex min-h-11 items-center underline"
+                    >
+                      Stok ve hareketler
+                      <span className="sr-only"> ({v.sku})</span>
+                    </Link>
+                  )}
+                  <PanelForm
                     action={updateVariant}
                     hidden={{ id: v.id }}
                     submit="Varyantı kaydet"
@@ -221,9 +228,9 @@ export default async function ProductPage({
                       name="is_active"
                       defaultChecked={v.is_active}
                     />
-                  </CatalogForm>
+                  </PanelForm>
                   {permissions.includes("costs.write") && (
-                    <CatalogForm
+                    <PanelForm
                       action={saveCost}
                       hidden={{ id: v.id }}
                       submit="Maliyeti kaydet"
@@ -241,7 +248,7 @@ export default async function ProductPage({
                         }
                         hint="Yalnızca Admin ve Super Admin görür."
                       />
-                    </CatalogForm>
+                    </PanelForm>
                   )}
                 </div>
               </details>
@@ -290,7 +297,7 @@ export default async function ProductPage({
                 className="h-auto w-40 rounded-xl"
               />
               <div className="space-y-3">
-                <CatalogForm
+                <PanelForm
                   action={updateImage}
                   hidden={{ id: image.id }}
                   submit="Görsel bilgisini kaydet"
@@ -322,9 +329,9 @@ export default async function ProductPage({
                       hint="Küçük olan önce görünür."
                     />
                   </div>
-                </CatalogForm>
+                </PanelForm>
                 {!readOnly && (
-                  <CatalogForm
+                  <PanelForm
                     action={deleteImage}
                     hidden={{ id: image.id }}
                     submit="Görseli sil"

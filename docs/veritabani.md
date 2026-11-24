@@ -47,10 +47,12 @@ Yayın şartı: açıklama, malzeme, ana kategori, aktif varyant (giyimde renk v
 | Tablo | Alanlar | Kural |
 |---|---|---|
 | `inventory` | `variant_id` (PK), `on_hand`, `reserved`, `critical_level` | `CHECK (0 <= reserved AND reserved <= on_hand)` |
-| `stock_movements` | `variant_id`, `delta`, `on_hand_after`, `reason`, `order_id?`, `note?`, `actor_id?`, `idempotency_key` | Yalnızca ekleme; `idempotency_key` benzersiz |
-| `stock_reservations` | `order_item_id`, `variant_id`, `quantity`, `expires_at?`, `status` | `status`: `active`, `consumed`, `released` |
+| `stock_movements` | `seq`, `variant_id`, `delta`, `on_hand_after`, `reason`, `note?`, `actor_id?`, `idempotency_key`, `reverses_id?` | Yalnızca ekleme; `idempotency_key` ve `reverses_id` benzersiz. `order_id?` Aşama 8'de eklenir |
+| `stock_reservations` (Aşama 8) | `order_item_id`, `variant_id`, `quantity`, `expires_at?`, `status` | `status`: `active`, `consumed`, `released` |
 
-Hareket nedenleri: `initial`, `purchase`, `adjustment`, `sale`, `cancel`, `return`, `damage`, `import`.
+Hareket nedenleri: `initial`, `purchase`, `adjustment`, `sale`, `cancel`, `return`, `damage`, `import`, `reversal`. Sayım `adjustment` olarak yazılır.
+
+Stok yalnızca `adjust_stock`, `reverse_stock_movement` ve `private.apply_stock` üzerinden değişir; önce `private.lock_inventory` satırı kilitler. Kritik seviye varsayılanı 3'tür.
 
 Değişmez eşitlikler:
 - `on_hand` = o varyantın `stock_movements.delta` toplamı
