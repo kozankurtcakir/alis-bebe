@@ -25,6 +25,7 @@ const actionLabels: Record<string, string> = {
   "user.activate": "Hesap açıldı",
   "user.deactivate": "Hesap kapatıldı",
   "stock.critical_level": "Kritik stok seviyesi değişti",
+  "import.apply": "Excel dosyası uygulandı",
   "mfa.reset": "İki adımlı doğrulama sıfırlandı",
 };
 

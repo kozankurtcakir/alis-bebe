@@ -7,7 +7,7 @@ import { PanelForm } from "@/components/panel-form";
 import { requirePermission } from "@/modules/auth/access";
 import { setCriticalLevel } from "@/modules/stock/actions";
 import { ReverseForm, StockOperation } from "@/modules/stock/forms";
-import { isManual, reasonLabel, stockState } from "@/modules/stock/labels";
+import { isReversible, reasonLabel, stockState } from "@/modules/stock/labels";
 import { getVariantStock, listMovements } from "@/modules/stock/queries";
 
 export const metadata: Metadata = { title: "Varyant stoğu" };
@@ -141,7 +141,7 @@ export default async function VariantStockPage({
                 · {m.actor_name || "Adsız"}
               </p>
               {m.is_reversed && <p className="text-sm">Ters çevrildi</p>}
-              {canAdjust && isManual(m.reason) && !m.is_reversed && (
+              {canAdjust && isReversible(m.reason) && !m.is_reversed && (
                 <ReverseForm
                   movement={m.id}
                   subject={`${reasonLabel(m.reason)} ${signed(m.delta)}`}

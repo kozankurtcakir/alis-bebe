@@ -9,8 +9,8 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 | 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Tamam (24.11.2026); proje sahibi denedi ve onayladı |
 | 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Tamam (24.11.2026); proje sahibi onayladı |
 | 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Tamam (24.11.2026); proje sahibi onayladı |
-| 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Sırada; kod öncesi tasarım onayı bekliyor |
-| 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Bekliyor |
+| 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Tamam (25.11.2026); proje sahibi onayladı |
+| 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Kuruluyor |
 | 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Bekliyor |
 | 8 | Sipariş, EFT, kapıda ödeme | Geçerli ve yasak tüm durum geçişleri testli | Bekliyor |
 | 9 | Kart ödemesi | Başarılı, red, tekrar, gecikme, sahte bildirim testli | Bekliyor |

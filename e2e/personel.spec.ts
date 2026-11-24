@@ -17,6 +17,22 @@ async function addStaff(page: Page, email: string, role: string) {
   await page.getByRole("button", { name: "Ekle", exact: true }).click();
 }
 
+/** Paralel testler de kayıt yazar; aranan kayıt sonraki sayfalara kaymış olabilir. */
+async function expectInHistory(page: Page, email: string, text: string) {
+  const entry = page
+    .getByRole("listitem")
+    .filter({ hasText: email })
+    .getByText(text);
+  for (let n = 1; n <= 10; n++) {
+    await page.goto(`/yonetim/islem-gecmisi?sayfa=${n}`);
+    await expect(
+      page.getByRole("heading", { name: "İşlem geçmişi" }),
+    ).toBeVisible();
+    if ((await entry.count()) > 0) return expect(entry).toBeVisible();
+  }
+  throw new Error(`İşlem geçmişinde bulunamadı: ${text}`);
+}
+
 test("Super Admin personeli yönetir, Admin sınırını aşamaz", async ({
   page,
   browser,
@@ -114,25 +130,14 @@ test("Super Admin personeli yönetir, Admin sınırını aşamaz", async ({
       .click();
     await expect(row(page, adminEmail)).toHaveCount(0);
 
-    await page.goto("/yonetim/islem-gecmisi");
     for (const text of [
       "Rol verildi: Admin",
       "Rol kaldırıldı: Admin",
       "İki adımlı doğrulama sıfırlandı",
     ]) {
-      await expect(
-        page
-          .getByRole("listitem")
-          .filter({ hasText: adminEmail })
-          .getByText(text),
-      ).toBeVisible();
+      await expectInHistory(page, adminEmail, text);
     }
-    await expect(
-      page
-        .getByRole("listitem")
-        .filter({ hasText: memberEmail })
-        .getByText("Hesap kapatıldı"),
-    ).toBeVisible();
+    await expectInHistory(page, memberEmail, "Hesap kapatıldı");
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,

@@ -5,7 +5,7 @@ Bu dosya projenin ana talimat dosyasıdır. Her oturumda önce bu dosya okunur v
 ## Proje durumu
 
 - **Genel onay:** Proje sahibi 24.11.2026'da mimariyi, veritabanı taslağını, akışları, 15 aşamayı, görsel yönü ve bütçeyi onayladı; aşamaların sırayla kurulmasını istedi.
-- **Güncel aşama:** Aşama 0-4 tamam (24.11.2026); sırada Aşama 5. Ayrıntı: `docs/asamalar.md`.
+- **Güncel aşama:** Aşama 0-5 tamam (25.11.2026); Aşama 6 kuruluyor. Ayrıntı: `docs/asamalar.md`.
 - Bir karar kesinleştiğinde veya aşama bittiğinde bu bölüm, "Kararlar" bölümü ve `docs/asamalar.md` güncellenir.
 
 ## Belgeler
@@ -123,6 +123,7 @@ Altyapı bunları destekler; ancak hiçbir çıktı hukuki danışmanlık yerine
 - Ürün kapsamı: çocuk ve bebek giyim, yetişkin giyim (tişört, eşofman, şort, hırka), kadın takım ve kişisel bakım. Kişisel bakım, mevzuat netleşene kadar yayınlanamaz.
 - SKU'yu sistem önerir, personel değiştirebilir. KDV oranı ürün başına elle girilir; hazır oran yoktur. Özgün fotoğraf saklanmaz.
 - Stok: varsayılan kritik seviye 3; uyarı şimdilik panelde; ikinci kişi onayı yok; barkod okuyucu kullanılmayacak. Stok ayırma Aşama 8'de siparişle kurulur.
+- Excel: tek hatalı satır bütün dosyayı durdurur; boş hücre değiştirmez; silme, yayınlama ve maliyet yüklenmez; dosya saklanmaz. Fiyatı %10 veya daha fazla değişen satır ayrıca onay ister. Uygulamayı yalnızca dosyayı yükleyen yapar.
 - Sabit yayın tarihi yok; aşama bazlı ilerlenir.
 - Geliştirme bilgisayarı: Windows 11, 16 GB RAM. Docker zorlanırsa ücretsiz bulut geliştirme projesine geçilir.
 - Görsel yön: Odunpazarı evleri. Petrol `#17454F`, hardal `#F4B942` (üzerinde petrol yazı), nar `#B93A4B`, nane `#CFE8E1`, zemin `#F4F9F8`. Yazı tipi: Baloo 2 ve Figtree.

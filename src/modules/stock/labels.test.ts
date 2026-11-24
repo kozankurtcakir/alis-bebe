@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { isManual, stockState } from "./labels";
+import { isManual, isReversible, stockState } from "./labels";
 
 test.each([
   [0, 3, true, "Tükendi"],
@@ -22,5 +22,9 @@ test("sipariş hareketleri elle yapılamaz", () => {
   expect(isManual("purchase")).toBe(true);
   for (const reason of ["sale", "cancel", "return", "import", "reversal"]) {
     expect(isManual(reason)).toBe(false);
+  }
+  expect(isReversible("import")).toBe(true);
+  for (const reason of ["sale", "cancel", "return", "reversal"]) {
+    expect(isReversible(reason)).toBe(false);
   }
 });

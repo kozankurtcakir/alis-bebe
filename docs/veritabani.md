@@ -63,8 +63,8 @@ Değişmez eşitlikler:
 
 | Tablo | Alanlar | Kural |
 |---|---|---|
-| `import_jobs` | `kind`, `file_path`, `file_hash`, `status`, `created_by`, `total`, `valid`, `invalid` | Durum: `uploaded`, `validated`, `applied`, `failed`, `cancelled` |
-| `import_rows` | `job_id`, `row_no`, `raw jsonb`, `parsed jsonb?`, `errors jsonb?`, `action` | `action`: `create`, `update`, `skip`, `error` |
+| `import_jobs` | `kind`, `stock_mode?`, `file_name`, `file_hash`, `status`, `created_by`, `total`, `invalid`, `applied_at?` | Durum: `invalid`, `validated`, `applied`. Dosya saklanmaz; `stock_mode`: `purchase`, `adjustment` |
+| `import_rows` | `job_id`, `row_no`, `raw jsonb`, `parsed jsonb`, `before jsonb`, `summary jsonb`, `errors jsonb`, `action`, `big_price_change` | Yalnızca ekleme. `action`: `create`, `update`, `skip`, `error`; `big_price_change` fiyatı %10 veya daha fazla değişen satır |
 
 ## Alışveriş (Aşama 7)
 
@@ -127,5 +127,4 @@ Değişmez eşitlikler:
 | Bucket | Erişim | İçerik |
 |---|---|---|
 | `product-images` | Herkes okur | Depoda yalnızca WebP (en fazla 4 MB); JPEG, PNG ve WebP kabul edilip WebP olarak yeniden üretilir; SVG yasak |
-| `imports` | Özel | Excel |
 | `documents` | Özel | Dekont, fatura, etiket; süreli bağlantı |

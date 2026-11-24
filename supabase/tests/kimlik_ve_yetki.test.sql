@@ -92,7 +92,8 @@ select set_eq(
   array['my_access', 'assign_role', 'revoke_role', 'set_user_active', 'reset_mfa',
     'list_staff', 'find_user_by_email', 'list_audit_logs', 'set_product_status', 'set_product_categories',
     'adjust_stock', 'reverse_stock_movement', 'set_critical_level', 'list_stock', 'stock_summary',
-    'list_stock_movements', 'is_active_session', 'has_permission'],
+    'list_stock_movements', 'import_lookup', 'create_import', 'apply_import', 'list_imports',
+    'is_active_session', 'has_permission'],
   'giriş yapan kullanıcı yalnızca listedeki fonksiyonları çalıştırabilir');
 
 select is_empty(

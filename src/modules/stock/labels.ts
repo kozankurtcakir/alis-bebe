@@ -11,6 +11,10 @@ export type ManualReason = (typeof manualReasons)[number];
 export const isManual = (reason: string): reason is ManualReason =>
   (manualReasons as readonly string[]).includes(reason);
 
+/** Sipariş hareketleri buradan ters çevrilmez. */
+export const isReversible = (reason: string) =>
+  isManual(reason) || reason === "import";
+
 const reasonLabels: Record<string, string> = {
   initial: "İlk stok",
   purchase: "Mal girişi",

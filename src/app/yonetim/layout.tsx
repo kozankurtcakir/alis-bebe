@@ -22,27 +22,37 @@ export default function AdminLayout({
   );
 }
 
-const links = [
-  { href: "/yonetim", label: "Özet", permission: "dashboard.read" },
-  { href: "/yonetim/katalog", label: "Ürünler", permission: "catalog.read" },
-  {
-    href: "/yonetim/katalog/kategoriler",
-    label: "Kategoriler",
-    permission: "catalog.read",
-  },
-  {
-    href: "/yonetim/katalog/listeler",
-    label: "Seçim listeleri",
-    permission: "catalog.read",
-  },
-  { href: "/yonetim/stok", label: "Stok", permission: "stock.read" },
-  { href: "/yonetim/personel", label: "Personel", permission: "staff.manage" },
-  {
-    href: "/yonetim/islem-gecmisi",
-    label: "İşlem geçmişi",
-    permission: "audit.read",
-  },
-];
+const links: { href: string; label: string; permission: string[] | string }[] =
+  [
+    { href: "/yonetim", label: "Özet", permission: "dashboard.read" },
+    { href: "/yonetim/katalog", label: "Ürünler", permission: "catalog.read" },
+    {
+      href: "/yonetim/katalog/kategoriler",
+      label: "Kategoriler",
+      permission: "catalog.read",
+    },
+    {
+      href: "/yonetim/katalog/listeler",
+      label: "Seçim listeleri",
+      permission: "catalog.read",
+    },
+    { href: "/yonetim/stok", label: "Stok", permission: "stock.read" },
+    {
+      href: "/yonetim/excel",
+      label: "Excel",
+      permission: ["import.products", "import.stock"],
+    },
+    {
+      href: "/yonetim/personel",
+      label: "Personel",
+      permission: "staff.manage",
+    },
+    {
+      href: "/yonetim/islem-gecmisi",
+      label: "İşlem geçmişi",
+      permission: "audit.read",
+    },
+  ];
 
 /** Bağlantıyı gizlemek yalnızca kolaylıktır; her sayfa izni kendisi kontrol eder. */
 async function AdminNav() {
@@ -55,7 +65,9 @@ async function AdminNav() {
       className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-gri pb-3"
     >
       {links
-        .filter((l) => access.permissions.includes(l.permission))
+        .filter((l) =>
+          [l.permission].flat().some((p) => access.permissions.includes(p)),
+        )
         .map((l) => (
           <Link
             key={l.href}
