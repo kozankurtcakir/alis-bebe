@@ -4,8 +4,8 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 | # | Aşama | Bitti sayılması için | Durum |
 |---|---|---|---|
-| 0 | Kararlar, şema, taslaklar | Sorular 1–6 yanıtlı; şema ve taslaklar onaylı | Sürüyor |
-| 1 | Kurulum | Temiz kurulum çalışır; testler geçer; depoda gizli anahtar yok | Bekliyor |
+| 0 | Kararlar, şema, taslaklar | Sorular 1–6 yanıtlı; şema ve taslaklar onaylı | Belgeler hazır, taslakların incelenmesi bekleniyor |
+| 1 | Kurulum | Temiz kurulum çalışır; testler geçer; depoda gizli anahtar yok | Yerelde tamam (24.11.2026); GitHub gönderimi bekliyor |
 | 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Bekliyor |
 | 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Bekliyor |
 | 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Bekliyor |
@@ -36,3 +36,9 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 - [ ] iyzico ve PayTR teklifi: komisyon, vade, kısmi iade, taksit, sabit IP
 - [ ] Kargo teklifleri: API, test ortamı, kapıda tahsilat, iade kodu, sabit IP
 - [ ] Ürün fotoğrafları: açık zemin, 4:5 oran
+
+## Teknik borçlar
+
+- ESLint 9 destek dışı; Next eklentileri ESLint 10'u destekleyince yükseltilecek (yalnızca geliştirme aracı).
+- CSP `script-src 'unsafe-inline'` içeriyor; Aşama 13'te sıkılaştırılacak.
+- `favicon.ico` şablondan geliyor; logo kararıyla değişecek (Aşama 6).

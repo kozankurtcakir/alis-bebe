@@ -14,6 +14,7 @@ Bu dosya projenin ana talimat dosyasıdır. Her oturumda önce bu dosya okunur v
 - `docs/kurallar.md`: yetki listesi ve sipariş/ödeme/stok/iade kuralları. İlgili kodu yazmadan önce oku.
 - `docs/asamalar.md`: aşamalar, tamamlanma kriterleri, açık sorular.
 - `docs/taslaklar.html`: sayfa taslakları (tarayıcıda açılır).
+- `AGENTS.md`: Next.js tarafından üretilir; Next kodu yazmadan önce `node_modules/next/dist/docs/` içindeki ilgili rehbere bak.
 
 ## Proje amacı
 
