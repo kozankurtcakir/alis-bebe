@@ -99,9 +99,10 @@ const entities: Record<string, string> = {
   apos: "'",
 };
 
-const decode = (text: string) =>
-  text.replace(/&([^;&]{0,10})(;?)/g, (_, body: string, end: string) => {
-    if (!end) throw new XlsxError(BROKEN);
+function decode(text: string) {
+  // İlk bozuk "&" işaretinde durur; replace bütün eşleşmeleri önce toplardı.
+  if (/&(?![^;&]{0,10};)/.test(text)) throw new XlsxError(BROKEN);
+  return text.replace(/&([^;&]{0,10});/g, (_, body: string) => {
     if (Object.hasOwn(entities, body)) return entities[body];
     const code = /^#(?:x([0-9a-fA-F]{1,6})|(\d{1,7}))$/.exec(body);
     const point = code
@@ -114,6 +115,7 @@ const decode = (text: string) =>
     }
     return String.fromCodePoint(point);
   });
+}
 
 type Handler = {
   open?: (name: string, attributes: Record<string, string>) => void;
