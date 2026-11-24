@@ -1,93 +1,15 @@
-import { execFileSync } from "node:child_process";
-import { createHmac, randomUUID } from "node:crypto";
+import { expect, test } from "@playwright/test";
 import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
-
-// Yerel Supabase açık olmalı: npm run db:start
-const MAIL = "http://127.0.0.1:54324/api/v1";
-const PASSWORD = "gardirop123";
-
-const newEmail = () => `test-${randomUUID()}@ornek.test`;
-
-function sql(query: string) {
-  return execFileSync(
-    "docker",
-    ["exec", "supabase_db_alis-bebe", "psql", "-U", "postgres", "-qAtc", query],
-    { encoding: "utf8" },
-  ).trim();
-}
-
-/** Yerel posta kutusundaki son iletinin bağlantısı. */
-async function mailLink(
-  request: APIRequestContext,
-  email: string,
-  type: string,
-) {
-  let link = "";
-  await expect
-    .poll(async () => {
-      const search = await request.get(`${MAIL}/search`, {
-        params: { query: `to:"${email}"` },
-      });
-      for (const { ID } of (await search.json()).messages) {
-        const { HTML } = await (
-          await request.get(`${MAIL}/message/${ID}`)
-        ).json();
-        link = /href="([^"]+)"/.exec(HTML)?.[1].replaceAll("&amp;", "&") ?? "";
-        if (link.includes(`type=${type}`)) return true;
-      }
-      return false;
-    })
-    .toBe(true);
-  return link;
-}
-
-/** Doğrulama uygulamasının ürettiği 6 haneli kod (RFC 6238). */
-function totp(secret: string) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const bits = [...secret.replace(/=+$/, "")]
-    .map((c) => alphabet.indexOf(c).toString(2).padStart(5, "0"))
-    .join("");
-  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
-  const hash = createHmac("sha1", key).update(counter).digest();
-  const offset = hash[19] & 15;
-  return String((hash.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(
-    6,
-    "0",
-  );
-}
-
-async function signUp(page: Page, email: string) {
-  await page.goto("/kayit");
-  await page.getByLabel("Ad soyad").fill("Deneme Kişi");
-  await page.getByLabel("E-posta").fill(email);
-  await page.getByLabel("Şifre").fill(PASSWORD);
-  await page.getByRole("button", { name: "Üye ol" }).click();
-  await expect(page.getByRole("status")).toContainText("doğrulama bağlantısı");
-}
-
-async function signUpAndConfirm(page: Page, email: string) {
-  await signUp(page, email);
-  await page.goto(await mailLink(page.request, email, "email"));
-  await page.getByRole("button", { name: "E-postamı doğrula" }).click();
-  await expect(page).toHaveURL("/hesap");
-}
-
-async function signIn(page: Page, email: string, password = PASSWORD) {
-  await page.goto("/giris");
-  await page.getByLabel("E-posta").fill(email);
-  await page.getByLabel("Şifre").fill(password);
-  await page.getByRole("button", { name: "Giriş yap" }).click();
-}
-
-const signOut = (page: Page) =>
-  page.getByRole("button", { name: "Çıkış yap" }).click();
+  grantRole,
+  mailLink,
+  newEmail,
+  signIn,
+  signOut,
+  signUp,
+  signUpAndConfirm,
+  sql,
+  totp,
+} from "./yardim";
 
 test("giriş yapmayan kişi korunan sayfaları açamaz", async ({ page }) => {
   for (const path of ["/hesap", "/sifre-yenile", "/iki-adim", "/yonetim"]) {
@@ -189,8 +111,7 @@ test("personel iki adımı geçmeden panele giremez, pasif olunca çıkarılır"
   await signOut(page);
   await expect(page).toHaveURL("/giris");
   const user = `(select id from auth.users where email = '${email}')`;
-  sql(`insert into public.user_roles (user_id, role_id)
-       select ${user}, id from public.roles where key = 'customer_service'`);
+  grantRole(email, "customer_service");
 
   await signIn(page, email);
   await expect(page).toHaveURL("/iki-adim");

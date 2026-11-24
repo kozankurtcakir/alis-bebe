@@ -22,6 +22,7 @@ export const getAccess = cache(async () => {
   if (!access.is_active) return null;
 
   return {
+    userId: auth.claims.sub,
     email: auth.claims.email ?? "",
     isStaff: access.is_staff,
     hasSecondStep: auth.claims.aal === "aal2",

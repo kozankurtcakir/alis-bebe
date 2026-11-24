@@ -6,7 +6,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 |---|---|---|---|
 | 0 | Kararlar, şema, taslaklar | Sorular 1–6 yanıtlı; şema ve taslaklar onaylı | Tamam (24.11.2026); taslaklar taslak olarak onaylandı, ileride geliştirilecek |
 | 1 | Kurulum | Temiz kurulum çalışır; testler geçer; depoda gizli anahtar yok | Tamam (24.11.2026); GitHub gönderimi ve CI başarılı |
-| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Sürüyor: veritabanı kısmı ve testleri hazır (24.11.2026); üyelik, giriş ve iki adımlı doğrulama sayfaları hazır; personel yönetimi ve işlem geçmişi ekranları bekliyor |
+| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Teknik kriterler tamam (24.11.2026): veritabanı, üyelik, iki adımlı doğrulama, personel ve işlem geçmişi ekranları; proje sahibinin denemesi ve onayı bekliyor |
 | 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Bekliyor |
 | 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Bekliyor |
 | 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Bekliyor |

@@ -25,6 +25,7 @@ npm run dev                       # http://localhost:3000
 | `npm run format` | Kod biçimlendirme |
 | `npm run db:start` / `npm run db:stop` | Yerel Supabase'i açar / kapatır (Docker açık olmalı) |
 | `npm run db:test` | Veritabanı ve yetki testleri |
+| `npm run ilk-yonetici -- e-posta` | Yerelde ilk Super Admin (üyenin e-postası doğrulanmış olmalı) |
 | `npm run db:reset` | Yerel veritabanını sıfırlar (**yerel veriyi siler**) |
 
 Gizli anahtarlar `.env.local` dosyasında durur ve Git'e eklenmez. Örnek: `.env.example`.

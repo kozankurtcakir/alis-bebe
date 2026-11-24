@@ -90,7 +90,7 @@ select set_eq(
      where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
        and has_function_privilege('authenticated', p.oid, 'execute') $$,
   array['my_access', 'assign_role', 'revoke_role', 'set_user_active', 'reset_mfa',
-    'list_staff', 'find_user_by_email', 'is_active_session', 'has_permission'],
+    'list_staff', 'find_user_by_email', 'list_audit_logs', 'is_active_session', 'has_permission'],
   'giriş yapan kullanıcı yalnızca listedeki fonksiyonları çalıştırabilir');
 
 select is_empty(
@@ -238,6 +238,11 @@ select is((select count(*) from public.audit_logs where actor_id = tests.uid('ad
 
 select is(tests.run_as('admin', 'select count(*) from public.audit_logs where created_at = now()'), '4', 'admin geçmişi okur');
 select is(tests.run_as('om', 'select count(*) from public.audit_logs'), '0', 'OM geçmişi okuyamaz');
+select is(tests.run_as('admin', 'select count(*) from public.list_audit_logs() where created_at = now()'), '4', 'admin geçmiş listesini görür');
+select is(tests.run_as('admin', 'select count(*) from public.list_audit_logs(-5) where created_at = now()'), '4', 'geçersiz sayfa numarası ilk sayfadır');
+select is(tests.run_as(u, 'select count(*) from public.list_audit_logs()'), 'HATA 42501', u || ': geçmiş listesini göremez')
+from unnest(array['pm', 'sm', 'om', 'cs', 'musteri']) u;
+select is(tests.run_as('sa', 'select count(*) from public.list_audit_logs()', 'aal1'), 'HATA 42501', 'SA aal1 ile geçmişi göremez');
 select is(tests.run_as('sa', 'delete from public.audit_logs returning 1'), 'HATA 42501', 'SA geçmişi silemez');
 select throws_ok('delete from public.audit_logs', '42501', null, 'veritabanı sahibi de geçmişi silemez');
 select throws_ok($$ update public.audit_logs set action = 'x' $$, '42501', null, 'veritabanı sahibi de geçmişi değiştiremez');

@@ -19,7 +19,8 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "db:env": "node scripts/yerel-env.mjs"
+    "db:env": "node scripts/yerel-env.mjs",
+    "ilk-yonetici": "node scripts/ilk-yonetici.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
