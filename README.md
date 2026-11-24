@@ -9,6 +9,8 @@ Node.js 24 gerekir.
 ```bash
 npm ci                            # paketleri kur
 npx playwright install chromium   # test tarayıcısı (bir kez)
+npm run db:start                  # yerel Supabase (Docker açık olmalı)
+npm run db:env                    # .env.local dosyasını oluşturur (bir kez)
 npm run dev                       # http://localhost:3000
 ```
 

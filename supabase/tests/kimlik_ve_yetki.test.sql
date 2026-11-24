@@ -18,7 +18,7 @@ declare
 begin
   insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_user_meta_data)
   values (v_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-    p_name || '@ornek.test', case when p_confirmed then now() end,
+    p_name || '@pgtap.test', case when p_confirmed then now() end,
     '{"full_name": "Test Kişisi", "role": "super_admin", "is_staff": true}');
   insert into auth.sessions (id, user_id) values (v_session, v_id);
   insert into tests.users values (p_name, v_id, v_session);
@@ -64,6 +64,11 @@ select tests.new_user('cs', 'customer_service');
 select tests.new_user('musteri');
 select tests.new_user('musteri2');
 select tests.new_user('onaysiz', null, false);
+
+-- Yerelde kayıtlı başka hesaplar sonucu etkilemesin (işlem sonunda geri alınır).
+alter table public.profiles disable trigger profiles_guard;
+update public.profiles set is_active = false where id not in (select id from tests.users);
+alter table public.profiles enable trigger profiles_guard;
 
 -- ---------------------------------------------------------------------------
 -- Genel güvenlik: tablolar ve fonksiyonlar
@@ -209,13 +214,13 @@ select is(tests.run_as('sa', format('select public.assign_role(%L, %L)', tests.u
 select is(tests.run_as('sa', format('select public.assign_role(%L, %L)', tests.uid('musteri'), 'yok')), 'HATA 22023', 'olmayan rol reddedilir');
 select is(tests.run_as('sa', format('select public.assign_role(%L, %L)', gen_random_uuid(), 'admin')), 'HATA P0002', 'olmayan kullanıcı reddedilir');
 select is(tests.run_as('sa', format('select public.assign_role(%L, %L)', tests.uid('onaysiz'), 'admin')), 'HATA 22023', 'e-postası doğrulanmamış kişiye rol verilmez');
-select is(tests.run_as('sa', $$ select private.bootstrap_super_admin('musteri@ornek.test') $$), 'HATA 42501', 'bootstrap API kullanıcısına kapalı');
+select is(tests.run_as('sa', $$ select private.bootstrap_super_admin('musteri@pgtap.test') $$), 'HATA 42501', 'bootstrap API kullanıcısına kapalı');
 select is(tests.run_as('sa', $$ select private.write_audit('x', 'x', null, null, null) $$), 'HATA 42501', 'işlem geçmişine elle yazılamaz');
-select throws_ok($$ select private.bootstrap_super_admin('musteri@ornek.test') $$, 'P0001', 'Super Admin zaten var.', 'bootstrap bir kez çalışır');
+select throws_ok($$ select private.bootstrap_super_admin('musteri@pgtap.test') $$, 'P0001', 'Super Admin zaten var.', 'bootstrap bir kez çalışır');
 
 -- Yukarıdaki denemeler hiçbir şeyi değiştirmemiş olmalı.
-select is((select count(*) from public.user_roles ur join public.roles r on r.id = ur.role_id where r.key <> 'customer'), 8::bigint, 'personel rolü sayısı değişmedi');
-select is((select count(*) from public.audit_logs), 0::bigint, 'reddedilen işlem geçmişe yazılmadı');
+select is((select count(*) from tests.users u join public.user_roles ur on ur.user_id = u.id join public.roles r on r.id = ur.role_id where r.key <> 'customer'), 8::bigint, 'personel rolü sayısı değişmedi');
+select is((select count(*) from public.audit_logs where created_at = now()), 0::bigint, 'reddedilen işlem geçmişe yazılmadı');
 
 -- ---------------------------------------------------------------------------
 -- İzin verilen işlemler ve işlem geçmişi
@@ -227,22 +232,22 @@ select is(tests.run_as('musteri', $$ select private.has_permission('orders.read'
 select is(tests.run_as('sa', format('select public.assign_role(%L, %L)', tests.uid('musteri'), 'admin')), '', 'SA, admin atar');
 select is(tests.run_as('sa', format('select public.revoke_role(%L, %L)', tests.uid('musteri'), 'admin')), '', 'SA, admin kaldırır');
 select set_eq(
-  $$ select action, count(*) from public.audit_logs group by 1 $$,
+  $$ select action, count(*) from public.audit_logs where created_at = now() group by 1 $$,
   $$ values ('role.assign', 2::bigint), ('role.revoke', 2::bigint) $$, 'her değişiklik geçmişte');
 select is((select count(*) from public.audit_logs where actor_id = tests.uid('admin')), 2::bigint, 'işlemi yapan doğru kaydedilir');
 
-select is(tests.run_as('admin', 'select count(*) from public.audit_logs'), '4', 'admin geçmişi okur');
+select is(tests.run_as('admin', 'select count(*) from public.audit_logs where created_at = now()'), '4', 'admin geçmişi okur');
 select is(tests.run_as('om', 'select count(*) from public.audit_logs'), '0', 'OM geçmişi okuyamaz');
 select is(tests.run_as('sa', 'delete from public.audit_logs returning 1'), 'HATA 42501', 'SA geçmişi silemez');
 select throws_ok('delete from public.audit_logs', '42501', null, 'veritabanı sahibi de geçmişi silemez');
 select throws_ok($$ update public.audit_logs set action = 'x' $$, '42501', null, 'veritabanı sahibi de geçmişi değiştiremez');
 select throws_ok('truncate public.audit_logs', '42501', null, 'geçmiş toptan boşaltılamaz');
 
-select is(tests.run_as('admin', 'select count(*) from public.list_staff()'), '8', 'personel listesi müşterileri içermez');
+select is(tests.run_as('admin', $$ select count(*) from public.list_staff() where email like '%@pgtap.test' $$), '8', 'personel listesi müşterileri içermez');
 select is(tests.run_as('om', 'select count(*) from public.list_staff()'), 'HATA 42501', 'OM personel listesini göremez');
-select is(tests.run_as('admin', $$ select count(*) from public.find_user_by_email(' MUSTERI@ornek.test ') $$), '1', 'tam e-posta bulunur');
+select is(tests.run_as('admin', $$ select count(*) from public.find_user_by_email(' MUSTERI@pgtap.test ') $$), '1', 'tam e-posta bulunur');
 select is(tests.run_as('admin', $$ select count(*) from public.find_user_by_email('%') $$), '0', 'joker karakterle arama yapılamaz');
-select is(tests.run_as('cs', $$ select count(*) from public.find_user_by_email('musteri@ornek.test') $$), 'HATA 42501', 'CS e-posta arayamaz');
+select is(tests.run_as('cs', $$ select count(*) from public.find_user_by_email('musteri@pgtap.test') $$), 'HATA 42501', 'CS e-posta arayamaz');
 
 -- ---------------------------------------------------------------------------
 -- Pasifleştirme, MFA sıfırlama, son Super Admin

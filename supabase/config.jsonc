@@ -234,7 +234,8 @@
       // Number of sessions that can be refreshed in a 5 minute interval per IP address.
       "token_refresh": 150,
       // Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
-      "sign_in_sign_ups": 30,
+      // Yalnızca yerel testler için yüksek; yayında ayrıca ayarlanır (Aşama 13).
+      "sign_in_sign_ups": 300,
       // Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
       "token_verifications": 30,
       // Number of Web3 logins that can be made in a 5 minute interval per IP address.
@@ -280,13 +281,16 @@
       //   "sender_name": "Admin"
       // },
 
-      // Uncomment to customize email template
-      // "template": {
-      //   "invite": {
-      //     "subject": "You have been invited",
-      //     "content_path": "./supabase/templates/invite.html"
-      //   }
-      // },
+      "template": {
+        "confirmation": {
+          "subject": "Aliş Bebe: e-postanızı doğrulayın",
+          "content_path": "./supabase/templates/confirmation.html"
+        },
+        "recovery": {
+          "subject": "Aliş Bebe: şifre yenileme",
+          "content_path": "./supabase/templates/recovery.html"
+        }
+      },
 
       // Uncomment to customize notification email template
       // "notification": {

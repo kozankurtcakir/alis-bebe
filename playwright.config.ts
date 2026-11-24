@@ -15,5 +15,6 @@ export default defineConfig({
     command: "npm run start -- -p 3100",
     url,
     reuseExistingServer: false,
+    env: { SITE_URL: url },
   },
 });
