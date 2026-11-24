@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Marka renkleri: Odunpazarı evleri (bkz. CLAUDE.md). Site yalnızca açık temadır. */
+@theme {
+  --color-petrol: #17454f;
+  --color-hardal: #f4b942;
+  --color-nar: #b93a4b;
+  --color-nane: #cfe8e1;
+  --color-zemin: #f4f9f8;
+  --color-gri: #55686d;
+}
+
+@theme inline {
+  --font-sans: var(--font-figtree);
+  --font-baslik: var(--font-baloo);
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-zemin);
+  color: var(--color-petrol);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-nar);
+  outline-offset: 3px;
+}
