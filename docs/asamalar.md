@@ -4,9 +4,9 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 | # | Aşama | Bitti sayılması için | Durum |
 |---|---|---|---|
-| 0 | Kararlar, şema, taslaklar | Sorular 1–6 yanıtlı; şema ve taslaklar onaylı | Belgeler hazır, taslakların incelenmesi bekleniyor |
-| 1 | Kurulum | Temiz kurulum çalışır; testler geçer; depoda gizli anahtar yok | Yerelde tamam (24.11.2026); GitHub gönderimi bekliyor |
-| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Bekliyor |
+| 0 | Kararlar, şema, taslaklar | Sorular 1–6 yanıtlı; şema ve taslaklar onaylı | Tamam (24.11.2026); taslaklar taslak olarak onaylandı, ileride geliştirilecek |
+| 1 | Kurulum | Temiz kurulum çalışır; testler geçer; depoda gizli anahtar yok | Tamam (24.11.2026); GitHub gönderimi ve CI başarılı |
+| 2 | Kimlik ve yetki | Her rol için izin/red testi; yetki yükseltme başarısız | Sırada; kod öncesi tasarım onayı bekliyor |
 | 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Bekliyor |
 | 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Bekliyor |
 | 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Bekliyor |
@@ -42,3 +42,4 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 - ESLint 9 destek dışı; Next eklentileri ESLint 10'u destekleyince yükseltilecek (yalnızca geliştirme aracı).
 - CSP `script-src 'unsafe-inline'` içeriyor; Aşama 13'te sıkılaştırılacak.
 - `favicon.ico` şablondan geliyor; logo kararıyla değişecek (Aşama 6).
+- GitHub deposu şimdilik herkese açık (proje sahibi 24.11.2026'da bilerek kabul etti); mümkün olunca özel yapılacak.

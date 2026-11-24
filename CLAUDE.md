@@ -5,7 +5,7 @@ Bu dosya projenin ana talimat dosyasıdır. Her oturumda önce bu dosya okunur v
 ## Proje durumu
 
 - **Genel onay:** Proje sahibi 24.11.2026'da mimariyi, veritabanı taslağını, akışları, 15 aşamayı, görsel yönü ve bütçeyi onayladı; aşamaların sırayla kurulmasını istedi.
-- **Güncel aşama:** `docs/asamalar.md` dosyasına bak.
+- **Güncel aşama:** Aşama 0 ve 1 tamam (24.11.2026); sırada Aşama 2. Ayrıntı: `docs/asamalar.md`.
 - Bir karar kesinleştiğinde veya aşama bittiğinde bu bölüm, "Kararlar" bölümü ve `docs/asamalar.md` güncellenir.
 
 ## Belgeler
@@ -116,6 +116,8 @@ Altyapı bunları destekler; ancak hiçbir çıktı hukuki danışmanlık yerine
 - Ölçek: ayda yaklaşık 1.000 sipariş.
 - Bütçe: temel altyapı yaklaşık 45–46 USD/ay; SMS, komisyon, vergi ve aşım hariç.
 - Alan adı `alisbebe.com` (satın almayı proje sahibi yapar).
+- GitHub deposu `kozankurtcakir/alis-bebe`; proje sahibinin kararıyla şimdilik herkese açık. Gizli bilgi ve gerçek veri commit edilmez.
+- Sayfa taslakları taslak olarak onaylandı (24.11.2026); ileride geliştirilecek.
 - Sabit yayın tarihi yok; aşama bazlı ilerlenir.
 - Geliştirme bilgisayarı: Windows 11, 16 GB RAM. Docker zorlanırsa ücretsiz bulut geliştirme projesine geçilir.
 - Görsel yön: Odunpazarı evleri. Petrol `#17454F`, hardal `#F4B942` (üzerinde petrol yazı), nar `#B93A4B`, nane `#CFE8E1`, zemin `#F4F9F8`. Yazı tipi: Baloo 2 ve Figtree.
