@@ -4,6 +4,7 @@ import { PanelForm } from "@/components/panel-form";
 import { formatPrice } from "@/lib/money";
 import { formatPhone } from "@/modules/account/validation";
 import { cancelMyOrder } from "@/modules/orders/actions";
+import { payOrder } from "@/modules/payments/actions";
 import {
   deliveryMethods,
   formatDate,
@@ -64,6 +65,34 @@ export default async function OrderPage({
           value={`${paymentMethods[order.payment_method]} · ${paymentStatuses[order.payment_status]}`}
         />
       </dl>
+
+      {order.can_pay && (
+        <section
+          aria-labelledby="kart"
+          className="space-y-3 rounded-2xl bg-white p-4"
+        >
+          <h2 id="kart" className="font-baslik text-xl font-bold">
+            Kartla ödeme
+          </h2>
+          <p>
+            {order.payment_status === "failed"
+              ? "Kartınız reddedildi. Yeniden deneyebilirsiniz."
+              : "Ödemeniz henüz görünmüyor. Ödediyseniz sonuç birkaç dakika içinde burada görünür; yeniden ödemeyin."}
+          </p>
+          {order.payment_due_at && (
+            <p>
+              Son ödeme: {formatDate(order.payment_due_at)}. Süre dolarsa
+              sipariş kendiliğinden iptal olur.
+            </p>
+          )}
+          <PanelForm
+            action={payOrder}
+            hidden={{ no: order.order_no }}
+            submit={`Kartla öde: ${formatPrice(order.total)}`}
+            primary
+          />
+        </section>
+      )}
 
       {order.bank && (
         <section

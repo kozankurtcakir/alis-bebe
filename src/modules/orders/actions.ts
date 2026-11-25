@@ -11,6 +11,7 @@ import { cookieOptions } from "@/lib/env";
 import { createClient } from "@/lib/supabase";
 import { getAccess, requirePermission } from "@/modules/auth/access";
 import { guestToken } from "@/modules/cart/guest";
+import { checkPayments, startPayment } from "@/modules/payments/service";
 import { sendPendingEmails } from "./mail";
 import { ORDER_COOKIE, ORDER_NO, orderToken } from "./queries";
 import { orderStatuses } from "./labels";
@@ -31,7 +32,10 @@ async function call(fn: string, args: Record<string, unknown>) {
   // Hatada da sayfa yenilenir: fiyat, stok veya durum değişmiş olabilir.
   revalidatePath("/", "layout");
   if (error) return { data: null, error: dbErrorMessage(error) };
-  after(sendPendingEmails);
+  after(async () => {
+    await checkPayments();
+    await sendPendingEmails();
+  });
   return { data: data as unknown, error: null };
 }
 
@@ -56,6 +60,11 @@ export const placeOrder: Action = async (_, form) => {
       ...cookieOptions(),
       path: `/siparis/${order_no}`,
     });
+  }
+  if (input.data.payment === "card") {
+    const payment = await startPayment(order_no, token);
+    // Sayfa açılamazsa sipariş durur; müşteri sipariş sayfasından öder.
+    if ("url" in payment) redirect(payment.url);
   }
   redirect(`/siparis/${order_no}?yeni=1`);
 };

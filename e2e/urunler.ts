@@ -112,6 +112,14 @@ export async function removeCategory(category: string) {
     delete from public.outbox_jobs where payload ->> 'order_id' in (select order_id::text from sil_siparis);
     delete from public.bank_transfers where payment_id in (
       select id from public.payments where order_id in (select order_id from sil_siparis));
+    ${["payment_events where attempt_id", "payment_attempts where id"]
+      .map(
+        (
+          t,
+        ) => `delete from public.${t} in (select a.id from public.payment_attempts a
+          join public.payments y on y.id = a.payment_id where y.order_id in (select order_id from sil_siparis));`,
+      )
+      .join(" ")}
     ${[
       "payments",
       "order_legal_acceptances",

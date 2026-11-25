@@ -89,14 +89,15 @@ Değişmez eşitlikler:
 | `order_access_tokens` | `order_id`, `token_hash`, `expires_at` | Düz kod saklanmaz; süre `link_days` ayarı |
 | `invoices` (sonra) | `order_id`, `invoice_no`, `issued_at`, `file_path` | Özel depolama |
 
-Sipariş tablolarına kimse doğrudan yazamaz. Müşteri `checkout_options`, `place_order`, `get_order`, `cancel_my_order`, `my_orders`; personel `list_orders`, `order_detail`, `order_summary`, `match_transfer`, `confirm_transfer`, `verify_order_phone`, `add_order_note`, `approve_order`, `advance_order`, `collect_store_payment`, `cancel_order`, `set_settings` çağırır. `claim_emails` ve `finish_email` yalnızca `service_role` içindir. Süresi dolan EFT siparişlerini `pg_cron` her 5 dakikada `private.expire_orders` ile iptal eder. Durum geçişlerini `private.guard_order` tetikleyicisi denetler.
+Sipariş tablolarına kimse doğrudan yazamaz. Müşteri `checkout_options`, `place_order`, `get_order`, `cancel_my_order`, `begin_card_payment`, `my_orders`; personel `list_orders`, `order_detail`, `order_summary`, `match_transfer`, `confirm_transfer`, `verify_order_phone`, `add_order_note`, `approve_order`, `advance_order`, `collect_store_payment`, `cancel_order`, `set_settings` çağırır. `claim_emails`, `finish_email`, `attach_card_attempt`, `record_card_event` ve `claim_card_checks` yalnızca `service_role` içindir. Süresi dolan EFT ve kart siparişlerini `pg_cron` her 5 dakikada `private.expire_orders` ile iptal eder. Durum geçişlerini `private.guard_order` tetikleyicisi denetler.
 
 ## Ödeme (Aşama 8–9)
 
 | Tablo | Alanlar | Kural |
 |---|---|---|
-| `payments` | `order_id`, `provider`, `amount`, `status`, `collected_as?`, `collected_by?`, `paid_at?` | Sipariş başına bir kayıt; `collected_as`: mağazada `cash` veya `card`. Kart numarası/CVV alanı yoktur; `provider_ref` Aşama 9'da eklenir |
-| `payment_events` | `provider`, `event_id`, `payment_id?`, `payload jsonb`, `processed_at?` | `(provider, event_id)` benzersiz; hassas alanlar temizlenir |
+| `payments` | `order_id`, `provider`, `amount`, `status`, `collected_as?`, `collected_by?`, `paid_at?` | Sipariş başına bir kayıt; `collected_as`: mağazada `cash` veya `card`. Kart numarası/CVV alanı yoktur |
+| `payment_attempts` | `payment_id`, `provider`, `provider_ref?`, `page_url?`, `amount`, `paid_amount?`, `installments`, `status`, `error_code?`, `checked_at?` | Her kart denemesi; `status`: `started`, `failed`, `paid`, `review` (tutar farklı), `refund_due` (fazladan gelen). `(provider, provider_ref)` benzersiz. Kimse doğrudan okuyamaz; personel `order_detail` ile görür |
+| `payment_events` | `provider`, `event_id`, `attempt_id`, `status`, `amount`, `currency`, `result` | Yalnızca ekleme; `(provider, event_id)` benzersiz. Ham bildirim bilerek saklanmaz. Kimse doğrudan okuyamaz |
 | `bank_transfers` | `payment_id`, `amount`, `reference`, `matched_by`, `matched_at`, `confirmed_by?`, `confirmed_at?`, `idempotency_key` | `reference` benzersiz: aynı banka işlemi iki siparişe yazılamaz. İki ayrı kişi şartı ayarla açılır (kapalı) |
 | `refunds` | `payment_id`, `return_request_id?`, `amount`, `status`, `requested_by`, `approved_by?`, `provider_ref?` | Toplam ≤ ödenen |
 | `cod_settlements` | `shipment_id`, `expected`, `received?`, `received_at?`, `status` | Aşama 10 |

@@ -16,7 +16,9 @@ import {
   matchTransfer,
   verifyPhone,
 } from "@/modules/orders/actions";
+import { checkOrderPayment } from "@/modules/payments/actions";
 import {
+  attemptStatuses,
   canCancel,
   cancelCodes,
   deliveryMethods,
@@ -139,6 +141,20 @@ export default async function OrderDetailPage({
                   maxLength={100}
                 />
               </PanelForm>
+            )}
+        </Section>
+      )}
+
+      {o.payment_method === "card" && (
+        <Section title="Kart ödemesi">
+          <Attempts order={o} />
+          {can("orders.approve") &&
+            o.attempts.some((a) => a.status === "started") && (
+              <PanelForm
+                action={checkOrderPayment}
+                hidden={{ no: o.order_no }}
+                submit="Ödemeyi sorgula"
+              />
             )}
         </Section>
       )}
@@ -277,6 +293,35 @@ function Addresses({ order }: { order: OrderDetail }) {
         </p>
       )}
     </Section>
+  );
+}
+
+function Attempts({ order }: { order: OrderDetail }) {
+  if (order.attempts.length === 0) return <p>Ödeme denenmedi.</p>;
+  return (
+    <ul className="space-y-3">
+      {order.attempts.map((a) => (
+        <li key={a.id}>
+          <p>
+            <strong>{formatPrice(a.amount)}</strong> ·{" "}
+            {attemptStatuses[a.status]}
+            {a.paid_amount !== null &&
+              a.paid_amount !== a.amount &&
+              ` (gelen ${formatPrice(a.paid_amount)})`}
+          </p>
+          <p className="text-sm break-words text-gri">
+            {[
+              formatDate(a.created_at),
+              a.installments > 1 && `${a.installments} taksit`,
+              a.ref,
+              a.error_code,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </li>
+      ))}
+    </ul>
   );
 }
 

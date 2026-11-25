@@ -82,8 +82,8 @@ select set_eq(
   $$ select p.proname::text from pg_proc p
      where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
        and has_function_privilege('service_role', p.oid, 'execute') $$,
-  array['claim_emails', 'finish_email'],
-  'service_role yalnızca e-posta kuyruğunu çalıştırabilir');
+  array['claim_emails', 'finish_email', 'attach_card_attempt', 'record_card_event', 'claim_card_checks'],
+  'service_role yalnızca e-posta kuyruğunu ve kart bildirimini çalıştırabilir');
 
 select set_eq(
   $$ select p.proname::text from pg_proc p
@@ -91,7 +91,7 @@ select set_eq(
        and has_function_privilege('anon', p.oid, 'execute') $$,
   array['shop_categories', 'shop_products', 'shop_facets', 'shop_product',
     'cart_count', 'cart_get', 'cart_add', 'cart_set',
-    'checkout_options', 'place_order', 'get_order', 'cancel_my_order'],
+    'checkout_options', 'place_order', 'get_order', 'cancel_my_order', 'begin_card_payment'],
   'ziyaretçi yalnızca mağaza, sepet ve kendi siparişi fonksiyonlarını çalıştırabilir');
 
 select set_eq(
@@ -105,7 +105,7 @@ select set_eq(
     'search_products', 'shop_categories', 'shop_products', 'shop_facets', 'shop_product',
     'cart_count', 'cart_get', 'cart_add', 'cart_set', 'cart_merge',
     'set_favorite', 'is_favorite', 'list_favorites', 'save_address', 'delete_address', 'set_consent',
-    'checkout_options', 'place_order', 'get_order', 'cancel_my_order', 'my_orders', 'cancel_order',
+    'checkout_options', 'place_order', 'get_order', 'cancel_my_order', 'begin_card_payment', 'my_orders', 'cancel_order',
     'match_transfer', 'confirm_transfer', 'verify_order_phone', 'add_order_note', 'approve_order',
     'advance_order', 'collect_store_payment', 'list_orders', 'set_settings', 'order_detail', 'order_summary',
     'is_active_session', 'has_permission', 'fold_tr'],

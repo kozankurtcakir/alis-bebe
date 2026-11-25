@@ -160,7 +160,7 @@ describe("parseCheckout", () => {
     [{ email: null }, "Geçersiz istek."],
     [{ phone: "0222 000 00 00" }, "cep telefonu"],
     [{ delivery: "drone" }, "Teslimat yöntemini seçin."],
-    [{ payment: "card" }, "Ödeme yöntemini seçin."],
+    [{ payment: "puan" }, "Ödeme yöntemini seçin."],
     [{ key: "x" }, "Geçersiz istek."],
     [{ expected_total: "-1" }, "Geçersiz istek."],
     [{ expected_total: "1.5" }, "Geçersiz istek."],
@@ -213,6 +213,7 @@ describe("settingsSchema", () => {
     max_unpaid: "3",
     link_days: "90",
     pickup_enabled: "on",
+    card_minutes: "30",
   };
 
   it("formu veritabanı değerlerine çevirir", () => {
@@ -228,6 +229,8 @@ describe("settingsSchema", () => {
       holidays: ["2026-10-29", "2027-01-01"],
       pickup_enabled: true,
       cod_enabled: false,
+      card_enabled: false,
+      card_minutes: 30,
       test_mode: false,
     });
   });
@@ -243,6 +246,8 @@ describe("settingsSchema", () => {
     { holidays: "2027-01-01" },
     { holidays: "32.01.2027" },
     { cod_enabled: "true" },
+    { card_enabled: "true" },
+    { card_minutes: "1,5" },
   ])("reddeder: %j", (over) => {
     expect(settingsSchema.safeParse({ ...valid, ...over }).success).toBe(false);
   });

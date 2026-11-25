@@ -74,6 +74,19 @@ export default async function SettingsPage() {
           />
         </Group>
 
+        <Group title="Kart ödemesi">
+          <CheckField
+            label="Kart ödemesi açık"
+            name="card_enabled"
+            defaultChecked={s.card_enabled}
+          />
+          <Count
+            label="Ödeme süresi (dakika)"
+            name="card_minutes"
+            value={s.card_minutes}
+          />
+        </Group>
+
         <Group title="Kapıda ödeme">
           <CheckField
             label="Kapıda ödeme açık"

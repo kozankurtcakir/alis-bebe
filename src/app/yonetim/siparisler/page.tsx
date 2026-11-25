@@ -22,7 +22,7 @@ export const metadata: Metadata = { title: "Siparişler" };
 const statuses = Object.keys(orderStatuses) as OrderStatus[];
 const filterSchema = z.object({
   ara: z.string().max(100).catch(""),
-  durum: z.enum(["", ...statuses]).catch(""),
+  durum: z.enum(["", "refund", ...statuses]).catch(""),
   sayfa: z.coerce.number().int().min(1).max(10_000).catch(1),
 });
 
@@ -108,10 +108,13 @@ export default async function OrdersPage({
           label="Durum"
           name="durum"
           empty="Hepsi"
-          options={statuses.map((value) => ({
-            value,
-            label: orderStatuses[value],
-          }))}
+          options={[
+            ...statuses.map((value) => ({
+              value: value as string,
+              label: orderStatuses[value] as string,
+            })),
+            { value: "refund", label: "Para iadesi bekleyen" },
+          ]}
           defaultValue={durum}
         />
         <button className="min-h-11 rounded-xl border border-petrol px-4 font-semibold hover:bg-nane">

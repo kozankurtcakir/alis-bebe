@@ -15,6 +15,7 @@ export const paymentStatuses = {
   pending: "Ödenmedi",
   review: "Tutar inceleniyor",
   paid: "Ödendi",
+  failed: "Kart reddedildi",
   cancelled: "Ödeme iptal",
   cod_due: "Kapıda ödenecek",
   cod_collected: "Kapıda ödendi",
@@ -24,6 +25,7 @@ export const paymentStatuses = {
 } as const;
 
 export const paymentMethods = {
+  card: "Kredi/banka kartı",
   transfer: "Havale/EFT",
   cod: "Kapıda ödeme",
   store: "Mağazada ödeme",
@@ -45,7 +47,16 @@ export const flagLabels: Record<string, string> = {
   cod_limit: "Kapıda ödeme sınırının üstünde",
   amount: "Gelen tutar farklı",
   stock: "Ayrılmış stok yok",
+  double: "İade edilecek para var",
 };
+
+export const attemptStatuses = {
+  started: "Sonuç bekleniyor",
+  failed: "Reddedildi",
+  paid: "Ödendi",
+  review: "Tutar farklı",
+  refund_due: "İade edilecek",
+} as const;
 
 /** Geçmiş satırının okunur hâli. */
 export function historyText(h: {

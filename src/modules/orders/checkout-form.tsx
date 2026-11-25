@@ -38,10 +38,12 @@ export function CheckoutForm({
 }) {
   const payments: Record<Delivery, Payment[]> = {
     shipping: [
+      ...(o.card ? (["card"] as const) : []),
       ...(o.transfer ? (["transfer"] as const) : []),
       ...(o.cod ? (["cod"] as const) : []),
     ],
     pickup: [
+      ...(o.card ? (["card"] as const) : []),
       ...(o.transfer ? (["transfer"] as const) : []),
       ...(o.pickup_pay ? (["store"] as const) : []),
     ],
@@ -73,6 +75,7 @@ export function CheckoutForm({
   const saved = member?.addresses.find((a) => a.id === savedId);
 
   const paymentHints: Record<Payment, string> = {
+    card: `Ödeme sağlayıcısının güvenli sayfasına yönlendirilirsiniz; kart bilginizi biz görmeyiz. Ürünler ${o.card_minutes} dakika ayrılır.`,
     transfer: `Ödeme bilgileri siparişten sonra gösterilir. Ürünler ${o.transfer_days} iş günü ayrılır.`,
     cod: [
       o.cod_fee > 0 && `Kapıda ödeme ücreti ${formatPrice(o.cod_fee)}.`,

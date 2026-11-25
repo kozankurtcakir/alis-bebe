@@ -187,7 +187,7 @@ update public.settings set value = '[]' where key = 'holidays';
 create table tests.tables (t text);
 insert into tests.tables select unnest(array['settings', 'orders', 'order_items', 'order_addresses',
   'order_status_history', 'order_access_tokens', 'stock_reservations', 'payments', 'bank_transfers',
-  'legal_documents', 'order_legal_acceptances', 'outbox_jobs']);
+  'legal_documents', 'order_legal_acceptances', 'outbox_jobs', 'payment_attempts', 'payment_events']);
 select is(left(tests.run_as(null, 'select count(*) from public.' || t), 10), 'HATA 42501', 'ziyaretçi okuyamaz: ' || t) from tests.tables;
 select is(left(tests.run_as('sa', 'select count(*) from public.' || t), 10), 'HATA 42501', 'kimse okuyamaz: ' || t)
 from unnest(array['order_access_tokens', 'outbox_jobs', 'legal_documents']) t;
@@ -195,7 +195,7 @@ select is_empty($$ select t, r, x from tests.tables, unnest(array['anon', 'authe
   unnest(array['insert', 'update', 'delete', 'truncate']) x
   where has_table_privilege(r, 'public.' || t, x)
      or case when x in ('insert', 'update') then has_any_column_privilege(r, 'public.' || t, x) else false end $$,
-  'on iki tabloya kimse doğrudan yazamaz');
+  'bu tablolara kimse doğrudan yazamaz');
 select ok((select bool_and(c.relrowsecurity) from pg_class c join tests.tables t on c.oid = ('public.' || t.t)::regclass), 'RLS hepsinde açık');
 
 -- ---------------------------------------------------------------------------
@@ -647,6 +647,261 @@ select is((select count(*) from public.claim_emails()), 2::bigint, 'gönderileme
 update public.outbox_jobs set attempts = 5 where status = 'pending';
 select public.finish_email((x ->> 'id')::uuid, x ->> 'token' is null) from posta;
 select is((select string_agg(status, ',' order by status) from public.outbox_jobs where id in (select (x ->> 'id')::uuid from posta)), 'failed,sent', 'beşinci başarısızlıkta durur');
+
+-- ---------------------------------------------------------------------------
+-- Kart ödemesi (Aşama 9)
+-- ---------------------------------------------------------------------------
+create table tests.a (name text primary key, id uuid);
+create function tests.a(p_name text) returns uuid language sql as $$ select id from tests.a where name = p_name $$;
+create function tests.tok(p_name text) returns text language sql as $$ select token from tests.o where name = p_name $$;
+create function tests.no(p_name text) returns text language sql as $$ select no from tests.o where name = p_name $$;
+create function tests.kart(p_name text, p_over jsonb default '{}') returns text language sql volatile as
+$$ select tests.order(p_name, null, 'ucuz', 1, 30000, '{"payment": "card"}' || p_over) $$;
+create function tests.begin(p_as text, p_name text, p_token text, p_inst text default '1') returns text language sql volatile as
+$$ select tests.run_as(p_as, format('select public.begin_card_payment(%L, %L, %s)', tests.no(p_name), p_token, p_inst), 'aal1') $$;
+create function tests.mine(p_name text, p_call text) returns text language sql volatile as
+$$ select tests.run_as(null, format('select public.' || p_call, tests.no(p_name), tests.tok(p_name))) $$;
+-- Denemeyi sahibinin koduyla başlatır ve adıyla saklar.
+create function tests.try(p_name text, p_order text) returns text language plpgsql as $$
+declare
+  r text := tests.begin(null, p_order, tests.tok(p_order));
+begin
+  if r like 'HATA%' then return r; end if;
+  insert into tests.a values (p_name, (r::jsonb ->> 'attempt')::uuid);
+  return 'ok';
+end $$;
+create function tests.srv(p_sql text) returns text language plpgsql as $$
+declare
+  r text;
+begin
+  begin
+    perform set_config('role', 'service_role', true);
+    execute p_sql into r;
+    perform set_config('role', 'postgres', true);
+  exception when others then
+    r := 'HATA ' || sqlstate || ' ' || sqlerrm;
+  end;
+  return r;
+end $$;
+create function tests.event(p_attempt text, p_event text, p_status text, p_amount bigint default 30000,
+  p_currency text default 'TRY', p_ref text default null, p_provider text default 'fake') returns text language sql volatile as
+$$ select tests.srv(format('select public.record_card_event(%L, %L, %L, %L, %L, %L, %L, %L)', p_provider, p_event,
+  tests.a(p_attempt), coalesce(p_ref, 'ref-' || tests.a(p_attempt)), p_status, p_amount, p_currency, 'kod')) $$;
+create function tests.attach(p_attempt text, p_ref text, p_url text) returns text language sql volatile as
+$$ select tests.srv(format('select public.attach_card_attempt(%L, %L, %L)', tests.a(p_attempt), p_ref, p_url)) $$;
+create function tests.ast(p_name text) returns text language sql as
+$$ select status from public.payment_attempts where id = tests.a(p_name) $$;
+create function tests.rez(p_name text) returns text language sql as $$ select r.status from public.stock_reservations r
+  join public.order_items i on i.id = r.order_item_id where i.order_id = tests.o(p_name) $$;
+
+-- Ayar ve kapalı hâl
+select is(left(tests.set(x), 10), 'HATA 22023', 'geçersiz kart ayarı: ' || x::text)
+from unnest(array['{"card_enabled": 1}', '{"card_minutes": 4}', '{"card_minutes": 121}', '{"card_provider": "iyzico"}',
+  '{"card_max_installments": 6}']::jsonb[]) x;
+select matches(tests.kart('x'), 'Kart ödemesi şu anda kapalı', 'kart kapalı başlar');
+select is(tests.run_as(null, $$ select public.checkout_options() ->> 'card' $$), 'false', 'kapalıyken seçenek görünmez');
+select is(tests.set('{"card_enabled": true}'), '', 'kart açılır');
+select is(tests.run_as(null, $$ select public.checkout_options() ->> 'card' $$), 'true', 'açıkken seçenek görünür');
+select matches(tests.set('{"test_mode": false}'), 'Sahte kart ödemesi', 'sahte sağlayıcıyla deneme modu kapanmaz');
+
+-- Sipariş
+select is(tests.kart('y' || i), 'ok', 'kart siparişi ' || i) from generate_series(1, 14) i;
+select is(tests.st('y1'), 'pending_payment/pending', 'kart ödeme bekler');
+select is((select payment_due_at from public.orders where id = tests.o('y1')), now() + interval '30 minutes', '30 dakika süre');
+select is((select provider || ':' || status from public.payments where order_id = tests.o('y1')), 'card:pending', 'ödeme kaydı');
+select is(tests.rez('y1'), 'active', 'stok ayrılır');
+select is(left(tests.call('om', 'approve_order', 'y1'), 10), 'HATA 22023', 'ödenmemiş kart siparişi onaylanamaz');
+select matches(tests.match('om', 'y1', 30000, 'R-kart'), 'havale yazılamaz', 'kart siparişine havale yazılamaz');
+select is(tests.mine('y1', 'get_order(%L, %L) ->> ''can_pay'''), 'true', 'müşteri ödeyebilir');
+
+-- Kim başlatabilir
+select is(left(tests.begin(u, 'y1', t), 10), 'HATA P0002', 'başlatamaz: ' || coalesce(u, 'ziyaretçi') || coalesce(left(t, 4), ''))
+from (values (null, null), (null, ''), (null, repeat('0', 64)), ('b', null), ('sa', null)) x (u, t);
+select is(left(tests.begin(null, 'y1', tests.tok('y2')), 10), 'HATA P0002', 'başka siparişin kodu açmaz');
+select is(tests.order('yu', 'a', 'ucuz', 1, 30000, '{"payment": "card"}'), 'ok', 'üye kart siparişi');
+select is(left(tests.begin('b', 'yu', null), 10), 'HATA P0002', 'başka üye başlatamaz');
+select ok(tests.begin('a', 'yu', null) not like 'HATA%', 'üye kendi siparişini öder');
+select is(left(tests.begin(null, 'y1', tests.tok('y1'), x), 10), 'HATA 22023', 'taksit yok: ' || x) from unnest(array['0', '2', 'null']) x;
+select is(left(tests.begin(null, 'k6', tests.tok('k6')), 10), 'HATA 22023', 'EFT siparişi kartla ödenmez');
+select is(tests.try('a1', 'y1'), 'ok', 'deneme başlar');
+select is((tests.begin(null, 'y1', tests.tok('y1'))::jsonb ->> 'attempt')::uuid, tests.a('a1'), 'ikinci tıklama aynı denemeyi döndürür');
+select is((select amount || ':' || installments || ':' || status from public.payment_attempts where id = tests.a('a1')), '30000:1:started', 'tutar siparişten alınır');
+update public.settings set value = 'false' where key = 'test_mode';
+select matches(tests.try('x', 'y2'), 'kapalı', 'deneme modu kapalıyken sahte ödeme başlamaz');
+select matches(tests.kart('x'), 'kapalı', 'deneme modu kapalıyken sahte kart siparişi olmaz');
+update public.settings set value = 'true' where key = 'test_mode';
+
+-- Sunucu dışında kimse para bildiremez
+select is(left(tests.run_as(u, format(q, tests.a('a1'))), 10), 'HATA 42501', coalesce(u, 'ziyaretçi') || ' çağıramaz: ' || left(q, 30))
+from unnest(array[null, 'a', 'sa']) u, unnest(array[
+  'select public.record_card_event(''fake'', ''s'', %L, ''r'', ''paid'', 30000, ''TRY'')',
+  'select public.attach_card_attempt(%L, ''r'', ''u'')',
+  'select count(*) from public.claim_card_checks(null) where attempt = %L',
+  'select count(*) from public.payment_attempts where id = %L',
+  'select count(*) from public.payment_events where attempt_id = %L']) q;
+select is_empty($$ select column_name from information_schema.columns where table_schema = 'public'
+  and table_name in ('payments', 'payment_attempts', 'payment_events') and column_name ~ 'card|cvv|cvc|pan|holder|expir|payload|raw' $$, 'kart bilgisi veya ham bildirim alanı yok');
+
+-- Sayfa adresi: ilk yazan geçerli
+select is(tests.attach('a1', 'ref-' || tests.a('a1'), 'https://bir.test'), 'https://bir.test', 'adres yazılır');
+select is(tests.attach('a1', 'ref-baska', 'https://iki.test'), 'https://bir.test', 'ikinci adres yazılmaz');
+select is((select provider_ref from public.payment_attempts where id = tests.a('a1')), 'ref-' || tests.a('a1'), 'numara değişmez');
+
+-- Sahte veya bozuk bildirim
+select is(left(tests.event('a1', 'b1', 'paid', 30000, 'TRY', 'ref-baska'), 10), 'HATA 22023', 'başka numaralı bildirim reddedilir');
+select is(left(tests.event('a1', 'b2', 'paid', 30000, 'TRY', null, 'iyzico'), 10), 'HATA P0002', 'başka sağlayıcının bildirimi reddedilir');
+select is(left(tests.event('yok', 'b3', 'paid', 30000, 'TRY', 'x'), 10), 'HATA P0002', 'olmayan deneme');
+select is(left(tests.event('a1', e, s), 10), 'HATA 22023', 'geçersiz bildirim') from (values (null, 'paid'), ('b4', null), ('b5', 'refunded')) x (e, s);
+select is(tests.st('y1') || (select count(*) from public.payment_events where attempt_id = tests.a('a1')), 'pending_payment/pending0', 'reddedilen bildirim iz bırakmaz');
+
+-- Başarılı ödeme ve tekrarlar
+select is(tests.event('a1', 'e1', 'paid'), 'paid', 'ödeme doğrulanır');
+select is(tests.st('y1'), 'awaiting_approval/paid', 'yönetici onayına düşer');
+select is((select status from public.payments where order_id = tests.o('y1')), 'paid', 'ödeme kaydı');
+select is(tests.event('a1', 'e1', 'paid'), 'duplicate', 'aynı olay bir kez işlenir');
+select is(left(tests.event('a1', 'e1', 'failed'), 10), 'HATA 22023', 'aynı numara başka sonuçla gelemez');
+select is(tests.event('a1', 'e1b', 'paid'), 'ignored', 'aynı ödemenin ikinci haberi');
+select is(tests.event('a1', 'e1c', 'failed'), 'ignored', 'sonradan gelen red ödemeyi bozmaz');
+select is(tests.st('y1') || tests.ast('a1'), 'awaiting_approval/paidpaid', 'durum korunur');
+select is((select count(*) from public.order_status_history where order_id = tests.o('y1') and field = 'order_status'), 2::bigint, 'tek geçiş');
+select is(left(tests.begin(null, 'y1', tests.tok('y1')), 10), 'HATA 22023', 'ödenmiş sipariş yeniden ödenmez');
+select is(tests.mine('y1', 'get_order(%L, %L) ->> ''can_pay'''), 'false', 'ödenince düğme kalkar');
+select is(tests.call('om', 'approve_order', 'y1', ', true'), '', 'sorunsuz kart siparişi toplu onaylanır');
+select is(tests.call('om', 'cancel_order', 'y1', $$, 'x'$$), '', 'onaydan sonra iptal');
+select is(tests.st('y1'), 'cancelled/refund_pending', 'karttan gelen para iade bekler');
+
+-- Red ve yeniden deneme
+select is(tests.try('a2', 'y2'), 'ok', 'deneme');
+select is(tests.event('a2', 'e2', 'failed'), 'failed', 'kart reddedildi');
+select is(tests.st('y2'), 'pending_payment/failed', 'sipariş beklemede kalır');
+select is((select error_code from public.payment_attempts where id = tests.a('a2')), 'kod', 'red nedeni');
+select is(left(tests.event('a2', 'e1b', 'paid'), 10), 'HATA 22023', 'başka denemenin olay numarası kullanılamaz');
+select is(tests.mine('y2', 'get_order(%L, %L) ->> ''can_pay'''), 'true', 'yeniden denenebilir');
+select is(tests.try('a2b', 'y2'), 'ok', 'yeni deneme');
+select isnt(tests.a('a2b'), tests.a('a2'), 'ayrı deneme');
+select is(tests.st('y2'), 'pending_payment/pending', 'yeniden beklemede');
+select is(tests.event('a2', 'e2x', 'failed'), 'ignored', 'eski denemenin reddi yenisini etkilemez');
+select is(tests.st('y2'), 'pending_payment/pending', 'durum değişmez');
+
+-- İki deneme de ödendi
+select is(tests.event('a2', 'e2p', 'paid'), 'paid', 'reddedilen denemenin parası sonradan geldi');
+select is(tests.event('a2b', 'e2q', 'paid'), 'refund_due', 'ikinci para iade bekler');
+select is(tests.st('y2'), 'awaiting_approval/paid', 'sipariş sürer');
+select ok(tests.call('om', 'order_detail', 'y2')::jsonb -> 'flags' ? 'double', 'panelde uyarı');
+select is(tests.run_as('om', format('select count(*) from public.list_orders(''refund'', %L)', tests.no('y2'))), '1', 'iade süzgecinde görünür');
+select is(tests.run_as('om', format('select count(*) from public.list_orders(''refund'', %L)', tests.no('y3'))), '0', 'iadesi olmayan görünmez');
+select is(left(tests.call('om', 'approve_order', 'y2', ', true'), 10), 'HATA 22023', 'fazla ödeme toplu onaya girmez');
+select is(tests.call('om', 'approve_order', 'y2'), '', 'tek tek onaylanır');
+select is(tests.run_as('om', 'select refund from public.order_summary()'), (select count(*)::text from public.orders o where payment_status = 'refund_pending'
+  or exists (select 1 from public.payment_attempts a join public.payments y on y.id = a.payment_id where y.order_id = o.id and a.status = 'refund_due')), 'özet fazla ödemeyi sayar');
+
+-- Yanlış tutar veya para birimi
+select is(tests.try('a' || i, 'y' || i), 'ok', 'deneme ' || i) from generate_series(3, 9) i;
+select is(tests.event(a, 'w' || a, 'paid', t, c), 'review', 'farklı tutar incelemeye düşer: ' || coalesce(t::text, 'yok') || coalesce(c, ''))
+from (values ('a3', 29999::bigint, 'TRY'), ('a4', 30001, 'TRY'), ('a5', null, 'TRY'), ('a6', 30000, 'USD'), ('a7', 30000, null)) x (a, t, c);
+select is(tests.st('y' || i), 'pending_payment/review', 'onaya geçmez') from generate_series(3, 7) i;
+select is((select paid_amount from public.payment_attempts where id = tests.a('a3')), 29999::bigint, 'gelen tutar yazılır');
+select is(left(tests.begin(null, 'y3', tests.tok('y3')), 10), 'HATA 22023', 'incelemedeyken yeniden ödenmez');
+select is(tests.event('a3', 'w3b', 'paid'), 'ignored', 'incelenen deneme ikinci haberle ödenmiş sayılmaz');
+update public.orders set payment_due_at = now() - interval '1 second' where id in (tests.o('y3'), tests.o('y8'), tests.o('y9'), tests.o('y10'));
+select is(tests.mine('y4', 'cancel_my_order(%L, %L)'), '', 'müşteri iptal eder');
+select is(tests.st('y4'), 'cancelled/refund_pending', 'incelenen para unutulmaz');
+
+-- Süre bitimi
+select is(left(tests.begin(null, 'y10', tests.tok('y10')), 10), 'HATA 22023', 'süre dolunca ödeme başlamaz');
+select is(tests.event('a9', 'e9f', 'failed'), 'failed', 'süresi dolanın kartı reddedildi');
+select is(private.expire_orders(), 3, 'bekleyen ve reddedilenler düşer, incelenen düşmez');
+select is(tests.st('y3') || ' ' || tests.st('y8') || ' ' || tests.st('y9'), 'pending_payment/review cancelled/cancelled cancelled/cancelled', 'durumlar');
+select is(tests.event('a8', 'e8', 'paid'), 'paid', 'geç gelen para, stok var');
+select is(tests.st('y8'), 'awaiting_approval/paid', 'sipariş sürer');
+select is(tests.rez('y8'), 'active', 'stok yeniden ayrılır');
+update public.inventory set reserved = on_hand where variant_id = tests.v('ucuz');
+select is(tests.event('a9', 'e9', 'paid'), 'refund_due', 'geç gelen para, stok yok');
+select is(tests.st('y9'), 'cancelled/refund_pending', 'iade bekler');
+update public.inventory set reserved = (select coalesce(sum(quantity), 0) from public.stock_reservations
+  where variant_id = tests.v('ucuz') and status = 'active') where variant_id = tests.v('ucuz');
+select is(tests.event('a9', 'e9b', 'paid'), 'ignored', 'iade bekleyen para stok gelince siparişi açmaz');
+select is(tests.st('y9'), 'cancelled/refund_pending', 'iptal kalır');
+
+-- Bildirim sayfa adresinden önce gelirse numarası korunur
+select is(tests.kart('kz' || i, jsonb_build_object('phone', '+90555777000' || i)), 'ok', 'kart siparişi z' || i) from generate_series(1, 4) i;
+select is(tests.try('kz1', 'kz1'), 'ok', 'deneme');
+select is(left(tests.srv(format('select public.record_card_event(''fake'', ''zn'', %L, null, ''paid'', 30000, ''TRY'')', tests.a('kz1'))), 10), 'HATA 22023', 'numarasız bildirim reddedilir');
+select set_config('app.order_note', 'sızan not', true);
+select is(tests.event('kz1', 'kz1', 'failed'), 'failed', 'adres yazılmadan gelen bildirim');
+select is((select count(*) from public.order_status_history where order_id = tests.o('kz1') and note is not null), 0::bigint, 'önceki not taşınmaz');
+select is((select provider_ref from public.payment_attempts where id = tests.a('kz1')), 'ref-' || tests.a('kz1'), 'numara bildirimden alınır');
+select is(tests.attach('kz1', 'ref-baska', 'https://baska.test'), null, 'başka numarayla adres yazılmaz');
+
+-- İncelenen para, öbür denemenin reddiyle unutulmaz; ödenince iade uyarısı kalır
+select is(tests.try('kz1b', 'kz1'), 'ok', 'ikinci deneme');
+select is(tests.event('kz1', 'kz1w', 'paid', 100), 'review', 'eski denemeden eksik para');
+select is(tests.event('kz1b', 'kz1f', 'failed'), 'failed', 'yeni deneme reddedildi');
+select is(tests.st('kz1'), 'pending_payment/review', 'inceleme sürer');
+select is(tests.run_as('om', format('select count(*) from public.list_orders(''refund'', %L)', tests.no('kz1'))), '0', 'incelenen henüz iade listesinde değil');
+select is(tests.event('kz1b', 'kz1p', 'paid'), 'paid', 'tam para geldi');
+select ok(tests.call('om', 'order_detail', 'kz1')::jsonb -> 'flags' ? 'double', 'eksik gelen para uyarıda kalır');
+select is((select paid_amount from public.payment_attempts where id = tests.a('a2b')), 30000::bigint, 'iade edilecek tutar yazılır');
+
+-- Açık kalan başka deneme varken red, siparişi reddedildi yapmaz
+update public.settings set value = '2' where key = 'card_max_installments';
+select is(tests.try('kz2', 'kz2'), 'ok', 'tek çekim');
+select ok(tests.begin(null, 'kz2', tests.tok('kz2'), '2') not like 'HATA%', 'taksitli deneme');
+select is(tests.event('kz2', 'kz2f', 'failed'), 'failed', 'tek çekim reddedildi');
+select is(tests.st('kz2'), 'pending_payment/pending', 'öbür deneme bekleniyor');
+update public.settings set value = '1' where key = 'card_max_installments';
+
+-- Süresi dolmamış, ödeme bekleyen EFT siparişi de kartla ödenmez
+select is(tests.order('kze', null, 'ucuz', 1, 30000, '{"payment": "transfer", "phone": "+905557770009"}'), 'ok', 'EFT siparişi');
+select is(tests.st('kze'), 'pending_payment/pending', 'ödeme bekliyor');
+select is(left(tests.begin(null, 'kze', tests.tok('kze')), 10), 'HATA 22023', 'EFT siparişine kart denemesi açılmaz');
+
+select is(tests.try('a' || i, 'y' || i), 'ok', 'deneme ' || i) from generate_series(11, 12) i;
+select is(tests.mine('y' || i, 'cancel_my_order(%L, %L)'), '', 'ödeme sürerken iptal ' || i) from generate_series(11, 12) i;
+select is(tests.st('y11'), 'cancelled/cancelled', 'iptal');
+select is(tests.event('a11', 'e11', 'paid'), 'refund_due', 'iptalden sonra gelen para siparişi açmaz');
+select is(tests.st('y11'), 'cancelled/refund_pending', 'iade bekler');
+select is(tests.event('a12', 'e12', 'paid', 100), 'review', 'iptalden sonra yanlış tutar');
+select is(tests.st('y12'), 'cancelled/refund_pending', 'yanlış tutar da iade bekler');
+
+-- Sınırlar
+do $$
+begin
+  for i in 1..10 loop
+    perform tests.try('l' || i, 'y13');
+    perform tests.event('l' || i, 'l' || i, 'failed');
+  end loop;
+end $$;
+select is((select count(*) from public.payment_attempts a join public.payments y on y.id = a.payment_id where y.order_id = tests.o('y13')), 10::bigint, 'on deneme');
+select matches(tests.try('l11', 'y13'), 'Çok fazla deneme', 'on birinci deneme reddedilir');
+select is(tests.kart('p' || i, '{"phone": "+905558888888"}'), 'ok', 'ödenmemiş ' || i) from generate_series(1, 3) i;
+select is(tests.try('p' || i, 'p' || i), 'ok', 'deneme') from generate_series(1, 3) i;
+select is(tests.event('p' || i, 'p' || i, 'failed'), 'failed', 'red ' || i) from generate_series(1, 3) i;
+select matches(tests.kart('x', '{"phone": "+905558888888"}'), 'Ödenmemiş siparişleriniz', 'reddedilen kart da ödenmemiş sayılır');
+
+-- Sorgu sırası
+select is(tests.try('a14', 'y14'), 'ok', 'deneme');
+create function tests.check(p_no text default null) returns text language sql volatile as
+$$ select tests.srv(format('select count(*) from public.claim_card_checks(%L) where attempt = %L', p_no, tests.a('a14'))) $$;
+select is(tests.check(tests.no('y14')), '0', 'numarası olmayan sorgulanmaz');
+select is(tests.attach('a14', 'ref-' || tests.a('a14'), 'https://a14.test'), 'https://a14.test', 'numara');
+select is(tests.check(), '0', 'yeni deneme sıraya girmez');
+select is(tests.check(tests.no('y13')), '0', 'başka siparişin denemesi gelmez');
+select is(tests.check(tests.no('y14')), '1', 'siparişin denemesi gelir');
+select is(tests.check(tests.no('y14')), '0', 'hemen ardından yeniden sorgulanmaz');
+update public.payment_attempts set created_at = now() - interval '10 minutes', checked_at = now() - interval '1 minute' where id = tests.a('a14');
+select is(tests.check(), '0', 'yakında sorgulanan beklenir');
+update public.payment_attempts set checked_at = null where id = tests.a('a14');
+select is(tests.check(), '1', 'beklenen sonuç sorgulanır');
+update public.payment_attempts set checked_at = null, created_at = now() - interval '2 days' where id = tests.a('a14');
+select is(tests.check(), '0', 'bir günden eski sorgulanmaz');
+update public.payment_attempts set created_at = now() - interval '10 minutes', status = 'failed' where id = tests.a('a14');
+select is(tests.check(), '0', 'sonucu bilinen sorgulanmaz');
+
+select throws_ok('update public.payment_events set result = ''paid''', '42501', null, 'olay kaydı değişmez');
+select throws_ok('delete from public.payment_events', '42501', null, 'olay kaydı silinmez');
+select is(jsonb_array_length(tests.call('cs', 'order_detail', 'y2')::jsonb -> 'attempts'), 2, 'panel denemeleri görür');
+select ok(position('bir.test' in tests.call('cs', 'order_detail', 'y1')) = 0, 'ödeme adresi panele verilmez');
 
 -- ---------------------------------------------------------------------------
 -- Değişmez eşitlikler

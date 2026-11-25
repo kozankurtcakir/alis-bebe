@@ -13,7 +13,7 @@ export default function hazirlik() {
   sql(`update public.settings s set value = v.value
        from jsonb_each('{"bank_iban": "TR330006100519786457841326", "bank_holder": "Deneme Hesabı",
          "shipping_fee": 20000, "free_shipping_from": 100000, "gift_fee": 500,
-         "cod_enabled": true, "cod_limit": 50000, "cod_fee": 1500, "phone_check": true,
+         "card_enabled": true, "card_minutes": 30, "cod_enabled": true, "cod_limit": 50000, "cod_fee": 1500, "phone_check": true,
          "pickup_enabled": true, "pickup_pay": true, "pickup_days": 7, "max_unpaid": 3,
          "transfer_two_person": false, "link_days": 90, "test_mode": true}'::jsonb) v
        where s.key = v.key`);

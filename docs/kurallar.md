@@ -70,7 +70,7 @@ Kart ve EFT `pending_payment` ile, kapıda ödeme ve mağazada ödeme `awaiting_
 
 Tek istisna: süresi dolduğu için iptal olan (`cancel_code = expired`) siparişin tam parası sonradan onaylanır ve stok yeterse sipariş `awaiting_approval` durumuna döner; stok yoksa veya tutar eksikse `refund_pending` olur.
 
-**Ödeme:** `pending`, `review`, `paid`, `cancelled`, `cod_due`, `cod_collected`, `refund_pending`, `partially_refunded`, `refunded` (`failed` Aşama 9'da)
+**Ödeme:** `pending`, `failed` (kart reddedildi; yeniden denenebilir), `review`, `paid`, `cancelled`, `cod_due`, `cod_collected`, `refund_pending`, `partially_refunded`, `refunded`
 
 **Kargo:** `none`, `created`, `handed_over`, `in_transit`, `delivered`, `failed`, `returned`
 
@@ -92,7 +92,11 @@ Satırlar her zaman `variant_id` sırasıyla kilitlenir. Rezervasyon süresi (ay
 
 - Tutarı sunucu hesaplar. Tarayıcının "başarılı" sayfasına dönmesi ödeme kanıtı değildir.
 - Bildirim imzası, tutar ve para birimi doğrulanır; aynı olay bir kez işlenir.
-- Bildirim gelmezse durum sağlayıcıdan sorgulanır.
+- Bildirim gelmezse durum sağlayıcıdan sorgulanır: müşteri dönünce, personel isteyince ve sipariş işlemlerinin ardından.
+- Kart bilgisi yalnızca sağlayıcının sayfasına girilir. İmzasız bildirim veritabanına ulaşmaz ve saklanmaz.
+- Açık kart denemesi varken yenisi açılmaz; sipariş başına en fazla 10 deneme.
+- Tutarı veya para birimi farklı kart ödemesi `review` olur; süre bitiminde iptal edilmez, personel karar verir.
+- Aynı siparişe ikinci kez gelen para kendiliğinden iade edilmez; panelde uyarı çıkar (`refund_due`), iade Aşama 11'de.
 - Rezervasyon bittikten sonra ödeme gelirse stok yeniden ayrılır; yoksa iade başlatılır ve uyarı verilir.
 - Dekont kanıt değildir; paranın hesapta görülmesi gerekir. Eksik/fazla EFT incelemeye düşer.
 - EFT'de bir kişi eşleştirip onaylayabilir; iki ayrı kişi şartı ayarla açılır. Yalnızca onaylanan havaleler toplanır.
@@ -119,4 +123,4 @@ Para iadesi önce `pending` yazılır, sonra sağlayıcıya gönderilir. Cevap g
 
 ## 7. Toplu inceleme ekranı
 
-Sorunsuz siparişler birlikte seçilip onaylanabilir. Şunlar toplu onaya **girmez**: tutar uyuşmazlığı, doğrulanmamış telefon, limit üstü kapıda ödeme, stok uyarısı. Her sipariş için ayrı onay kaydı yazılır.
+Sorunsuz siparişler birlikte seçilip onaylanabilir. Şunlar toplu onaya **girmez**: tutar uyuşmazlığı, iade edilecek para, doğrulanmamış telefon, limit üstü kapıda ödeme, stok uyarısı. Her sipariş için ayrı onay kaydı yazılır.

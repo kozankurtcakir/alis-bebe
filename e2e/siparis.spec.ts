@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { randomInt, randomUUID } from "node:crypto";
+import { createHmac, randomInt, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
@@ -90,6 +90,7 @@ async function toCheckout(page: Page, size = "3-6 Ay") {
   await expect(
     page.getByRole("heading", { name: "Siparişi tamamla" }),
   ).toBeVisible();
+  await page.getByRole("radio", { name: "Havale/EFT" }).check();
 }
 
 async function fillContact(page: Page, email?: string) {
@@ -326,6 +327,7 @@ test("çift tıklama tek sipariş üretir", async ({ page }) => {
     await fillAddress(page);
     await accept(page);
   }
+  await page.getByRole("radio", { name: "Havale/EFT" }).check();
   await submit(page).click();
   await expect(page).not.toHaveURL("/odeme");
   expect(await placed(page)).not.toBe(first);
@@ -573,9 +575,19 @@ test("ayarlar: yalnızca Super Admin, doğrulama ve işlem geçmişi", async ({
     await page.getByLabel("IBAN").fill("TR33 0006 1005 1978 6457 8413 26");
     await page.getByLabel("Deneme modu açık").uncheck();
     await button(page, "Ayarları kaydet").click();
+    await expect(alert(page)).toContainText("Sahte kart ödemesi açıkken");
+    // Kart kapansa da sözleşmeler taslakken deneme modu kapanmaz.
+    const card = page.getByLabel("Kart ödemesi açık");
+    await card.uncheck();
+    await button(page, "Ayarları kaydet").click();
     await expect(alert(page)).toContainText("Deneme modu");
 
+    await card.check();
     await page.getByLabel("Deneme modu açık").check();
+    await page.getByLabel("Ödeme süresi (dakika)").fill("4");
+    await button(page, "Ayarları kaydet").click();
+    await expect(alert(page)).toContainText("Geçersiz ayar: card_minutes");
+    await page.getByLabel("Ödeme süresi (dakika)").fill("30");
     const value = String(randomInt(91, 365));
     await days.fill(value);
     await button(page, "Ayarları kaydet").click();
@@ -775,4 +787,334 @@ test("onay ve iptal aynı anda: yalnızca biri geçerli olur", async ({
       `select string_agg(reason || delta, ',' order by seq) from public.stock_movements where order_id = '${id}'`,
     ),
   ).toBe("sale-1,cancel1");
+});
+
+// --- Kart ödemesi -----------------------------------------------------------
+
+/** Kartla sipariş verir ve sahte bankanın sayfasında durur. */
+async function guestCard(page: Page, email = newEmail()) {
+  await toCheckout(page);
+  await page.getByRole("radio", { name: "Kredi/banka kartı" }).check();
+  await fillContact(page, email);
+  await fillAddress(page);
+  await accept(page);
+  await submit(page).click();
+  return atBank(page);
+}
+
+async function atBank(page: Page) {
+  await expect(
+    page.getByRole("heading", { name: "Sahte banka" }),
+  ).toBeVisible();
+  const attempt = /sahte-odeme\/([0-9a-f-]{36})/.exec(page.url())![1];
+  const no = /AB\w{10}/.exec(await main(page).innerText())![0];
+  return { attempt, no };
+}
+
+const fact = (page: Page, text: string) =>
+  expect(main(page).locator("dd").filter({ hasText: text })).toBeVisible();
+
+const status = (no: string) =>
+  sql(
+    `select order_status || '/' || payment_status from public.orders where order_no = '${no}'`,
+  );
+const eventCount = (attempt: string) =>
+  sql(
+    `select count(*) from public.payment_events where attempt_id = '${attempt}'`,
+  );
+
+/** Sağlayıcının göndereceği bildirim. */
+async function webhook(
+  attempt: string,
+  over: Record<string, unknown> = {},
+  o: {
+    secret?: string;
+    signature?: string;
+    provider?: string;
+    body?: string;
+  } = {},
+) {
+  const body =
+    o.body ??
+    JSON.stringify({
+      event: `test-${attempt}`,
+      attempt,
+      ref: `S-${attempt}`,
+      status: "paid",
+      amount: 30000,
+      currency: "TRY",
+      code: null,
+      ...over,
+    });
+  const response = await fetch(
+    `http://localhost:3100/api/odeme/${o.provider ?? "fake"}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-sahte-imza":
+          o.signature ??
+          createHmac("sha256", o.secret ?? envValue("FAKE_PAYMENT_SECRET"))
+            .update(body)
+            .digest("hex"),
+      },
+      body,
+    },
+  );
+  return response.status;
+}
+
+test("kart: red, yeniden deneme, başarı ve panel", async ({
+  page,
+  browser,
+}) => {
+  test.slow();
+  const errors: string[] = [];
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  page.on("pageerror", (e) => errors.push(e.message));
+  const email = newEmail();
+
+  const first = await guestCard(page, email);
+  // Kart bilgisi istenmez: sayfada görünür giriş alanı yoktur.
+  await expect(page.locator("input:visible")).toHaveCount(0);
+  await accessible(page);
+  await narrow(page);
+
+  await button(page, "Kartı reddet").click();
+  await expect(page.getByText("Kartınız reddedildi.")).toBeVisible();
+  await expect(page).toHaveURL(`/siparis/${first.no}`);
+  expect(status(first.no)).toBe("pending_payment/failed");
+  await accessible(page);
+  await narrow(page);
+
+  await button(page, /^Kartla öde/).click();
+  const second = await atBank(page);
+  expect(second.no).toBe(first.no);
+  expect(second.attempt).not.toBe(first.attempt);
+
+  // Sonuçlanmadan sipariş sayfasına dönüp yeniden basmak aynı ödemeyi sürdürür.
+  await page.goto(`/siparis/${first.no}`);
+  await button(page, /^Kartla öde/).click();
+  expect((await atBank(page)).attempt).toBe(second.attempt);
+
+  await button(page, "Ödemeyi onayla").click();
+  await fact(page, "Onay bekliyor");
+  await fact(page, "Kredi/banka kartı · Ödendi");
+  await expect(button(page, /^Kartla öde/)).toHaveCount(0);
+  expect(
+    sql(`select count(*) from public.orders where email = '${email}'`),
+  ).toBe("1");
+  expect(errors).toEqual([]);
+
+  const { page: admin } = await staff(browser, "order_manager");
+  await openInPanel(admin, first.no);
+  const card = admin.getByRole("region", { name: "Kart ödemesi" });
+  await expect(card.getByText("₺300,00 · Reddedildi")).toBeVisible();
+  await expect(card.getByText("₺300,00 · Ödendi")).toBeVisible();
+  await accessible(admin);
+  await narrow(admin);
+  await button(admin, "Siparişi onayla").click();
+  await expect(button(admin, "Duruma geç: Hazırlanıyor")).toBeVisible();
+});
+
+test("kart: tarayıcının dönüşü kanıt değildir; bildirim gelmezse sağlayıcıya sorulur", async ({
+  page,
+  browser,
+}) => {
+  test.slow();
+  const { attempt, no } = await guestCard(page);
+  const bank = page.url();
+
+  // Ödemeden dönüş adresine gitmek siparişi ödemez.
+  await page.goto(`/siparis/${no}/odeme-donus?durum=basarili&tutar=30000`);
+  await expect(page).toHaveURL(`/siparis/${no}`);
+  await expect(page.getByText("Ödemeniz henüz görünmüyor.")).toBeVisible();
+  expect(status(no)).toBe("pending_payment/pending");
+
+  // Başkası dönüş adresinden siparişi göremez; banka sayfası imzasız açılmaz.
+  const other = await separate(browser);
+  await other.goto(`/siparis/${no}/odeme-donus`);
+  await expect(
+    other.getByRole("heading", { name: "Sipariş açılamadı" }),
+  ).toBeVisible();
+  await other.goto(`/sahte-odeme/${attempt}?imza=${"0".repeat(64)}`);
+  await expect(
+    other.getByRole("heading", { name: "Sayfa bulunamadı" }),
+  ).toBeVisible();
+
+  await page.goto(bank);
+  await button(page, "Onayla, bildirim gönderme").click();
+  await expect(page).toHaveURL(`/siparis/${no}`);
+  // Sorgular arasında 5 saniye vardır.
+  await expect(async () => {
+    await page.goto(`/siparis/${no}/odeme-donus`);
+    await fact(page, "Kredi/banka kartı · Ödendi");
+  }).toPass({ timeout: 20_000 });
+  expect(eventCount(attempt)).toBe("1");
+  // Bildirim sonradan da gelse bir kez işlenir.
+  expect(await webhook(attempt, { event: `olay-${attempt}` })).toBe(200);
+  expect(status(no)).toBe("awaiting_approval/paid");
+  expect(eventCount(attempt)).toBe("1");
+});
+
+test("kart: eksik tutar incelemeye düşer; panel sorgular ve iadeyi gösterir", async ({
+  page,
+  browser,
+}) => {
+  test.slow();
+  const wrong = await guestCard(page);
+  await button(page, "Eksik tutarla onayla").click();
+  await fact(page, "Tutar inceleniyor");
+  await expect(button(page, /^Kartla öde/)).toHaveCount(0);
+  expect(status(wrong.no)).toBe("pending_payment/review");
+
+  const { page: admin } = await staff(browser, "admin");
+  await openInPanel(admin, wrong.no);
+  await expect(admin.getByText("Tutar farklı (gelen ₺299,99)")).toBeVisible();
+  await expect(button(admin, "Siparişi onayla")).toHaveCount(0);
+  await admin.getByLabel("İptal nedeni").fill("Eksik tutar");
+  await button(admin, "Siparişi iptal et").click();
+  await fact(admin, "İade bekliyor");
+  await admin.goto(`/yonetim/siparisler?durum=refund&ara=${wrong.no}`);
+  await expect(admin.getByRole("link", { name: wrong.no })).toBeVisible();
+  await accessible(admin);
+
+  // Bildirimi gelmeyen ödemeyi personel sorgular.
+  const silent = await guestCard(await separate(browser));
+  await openInPanel(admin, silent.no);
+  await button(admin, "Ödemeyi sorgula").click();
+  await expect(admin.getByText("Ödeme sorgulandı.")).toBeVisible();
+  expect(status(silent.no)).toBe("pending_payment/pending");
+});
+
+test("kart: sahte, bozuk ve başkasına ait bildirim reddedilir", async ({
+  page,
+}) => {
+  test.slow();
+  const { attempt, no } = await guestCard(page);
+  const statuses = await Promise.all([
+    webhook(attempt, {}, { signature: "" }),
+    webhook(attempt, {}, { signature: "0".repeat(64) }),
+    webhook(attempt, {}, { secret: "x".repeat(32) }),
+    webhook(attempt, { status: "refunded" }),
+    webhook(attempt, {}, { body: "{" }),
+    webhook(attempt, {}, { body: "x".repeat(70_000) }),
+    webhook(attempt, {}, { provider: "iyzico" }),
+    webhook(randomUUID()),
+    webhook(attempt, { event: "baska", ref: "S-baska" }),
+  ]);
+  expect(statuses).toEqual([401, 401, 401, 401, 401, 413, 404, 404, 409]);
+  const get = await page.request.get("/api/odeme/fake");
+  expect(get.status()).toBe(405);
+  expect(status(no)).toBe("pending_payment/pending");
+  expect(eventCount(attempt)).toBe("0");
+
+  // Veritabanı fonksiyonu dışarıdan çağrılamaz.
+  const direct = await rpc("record_card_event", {
+    p_provider: "fake",
+    p_event: "x",
+    p_attempt: attempt,
+    p_ref: `S-${attempt}`,
+    p_status: "paid",
+    p_amount: 30000,
+    p_currency: "TRY",
+  });
+  expect(direct.ok).toBe(false);
+  expect(direct.data.code).toBe("42501");
+  expect(status(no)).toBe("pending_payment/pending");
+});
+
+test("kart: geç gelen para ve 50 eşzamanlı aynı bildirim", async ({
+  browser,
+}, info) => {
+  test.skip(info.project.name !== "masaustu");
+  test.slow();
+
+  // Süre dolup sipariş düştükten sonra gelen para: stok varsa sipariş sürer.
+  const late = await guestCard(await separate(browser));
+  sql(
+    `update public.orders set payment_due_at = now() - interval '1 second' where order_no = '${late.no}'`,
+  );
+  sql("select private.expire_orders()");
+  expect(status(late.no)).toBe("cancelled/cancelled");
+  expect(await webhook(late.attempt)).toBe(200);
+  expect(status(late.no)).toBe("awaiting_approval/paid");
+
+  const { attempt, no } = await guestCard(await separate(browser));
+  const answers = await Promise.all(
+    Array.from({ length: 50 }, () => webhook(attempt)),
+  );
+  expect(new Set(answers)).toEqual(new Set([200]));
+  expect(status(no)).toBe("awaiting_approval/paid");
+  expect(eventCount(attempt)).toBe("1");
+  expect(
+    sql(`select count(*) from public.order_status_history h join public.orders o on o.id = h.order_id
+         where o.order_no = '${no}' and h.field = 'order_status' and h.to_value = 'awaiting_approval'`),
+  ).toBe("1");
+
+  // Aynı ödemenin 20 farklı numaralı haberi de ikinci kez ödeme sayılmaz.
+  const other = await guestCard(await separate(browser));
+  await Promise.all(
+    Array.from({ length: 20 }, (_, n) =>
+      webhook(other.attempt, { event: `haber-${n}-${other.attempt}` }),
+    ),
+  );
+  expect(
+    sql(`select string_agg(distinct result, ',' order by result) || ':' || count(*) filter (where result = 'paid')
+         from public.payment_events where attempt_id = '${other.attempt}'`),
+  ).toBe("ignored,paid:1");
+});
+
+test("kart: süre bitimi ile bildirim yarışı; para da stok da kaybolmaz", async ({
+  browser,
+}, info) => {
+  test.skip(info.project.name !== "masaustu");
+  test.slow();
+  const results = new Set<string>();
+  for (let n = 0; n < 4; n++) {
+    const { attempt, no } = await guestCard(await separate(browser));
+    sql(
+      `update public.orders set payment_due_at = now() - interval '1 second' where order_no = '${no}'`,
+    );
+    const [expired, answer] = await Promise.all([
+      psql("select private.expire_orders()"),
+      webhook(attempt),
+    ]);
+    expect(expired).not.toContain("HATA");
+    expect(answer).toBe(200);
+    results.add(
+      sql(`select string_agg(to_value, '>' order by seq) from public.order_status_history h
+           join public.orders o on o.id = h.order_id where o.order_no = '${no}' and field = 'order_status'`),
+    );
+    expect(
+      sql(`select o.order_status || ':' || o.payment_status || ':' || string_agg(r.status, ',')
+           from public.orders o join public.order_items i on i.order_id = o.id
+           join public.stock_reservations r on r.order_item_id = i.id
+           where o.order_no = '${no}' group by o.id`),
+    ).toBe("awaiting_approval:paid:active");
+  }
+  info.annotations.push({
+    type: "yarış",
+    description: [...results].join(", "),
+  });
+});
+
+test("kart: üye, mağazadan teslim siparişini kartla öder", async ({ page }) => {
+  test.slow();
+  await signUpAndConfirm(page, newEmail());
+  await toCheckout(page);
+  await page.getByRole("radio", { name: "Kredi/banka kartı" }).check();
+  await page.getByRole("radio", { name: "Mağazadan teslim" }).check();
+  await expect(
+    page.getByRole("radio", { name: "Kredi/banka kartı" }),
+  ).toBeChecked();
+  await page.getByLabel("Ad soyad").fill("Deneme Kişi");
+  await page.getByLabel("Cep telefonu").fill(newPhone());
+  await fillAddress(page);
+  await accept(page);
+  await submit(page).click();
+  const { no } = await atBank(page);
+  await button(page, "Ödemeyi onayla").click();
+  await fact(page, "Kredi/banka kartı · Ödendi");
+  await expect(page).toHaveURL(`/siparis/${no}`);
 });

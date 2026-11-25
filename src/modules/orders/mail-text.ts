@@ -24,6 +24,7 @@ const statusTexts: Record<string, string> = {
 };
 
 const placedTexts: Record<string, string> = {
+  card: "Siparişinizi aldık. Ödemeyi tamamlamadıysanız sipariş sayfanızdan devam edebilirsiniz.",
   transfer:
     "Siparişinizi aldık. Ödeme bilgileri ve son ödeme tarihi sipariş sayfanızda.",
   cod: "Siparişinizi aldık. Onay için sizi arayabiliriz; ödemeyi kapıda yaparsınız.",

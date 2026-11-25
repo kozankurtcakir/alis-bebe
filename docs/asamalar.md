@@ -13,7 +13,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 | 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Tamam (25.11.2026); proje sahibi onayladı |
 | 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Tamam (25.11.2026); proje sahibi onayladı |
 | 8 | Sipariş, EFT, kapıda ödeme, mağazadan teslim | Geçerli ve yasak tüm durum geçişleri testli | Tamam (25.11.2026); proje sahibi onayladı |
-| 9 | Kart ödemesi | Başarılı, red, tekrar, gecikme, sahte bildirim testli | Bekliyor |
+| 9 | Kart ödemesi | Başarılı, red, tekrar, gecikme, sahte bildirim testli | Tamam (25.11.2026); proje sahibi onayladı. Yalnızca sahte sağlayıcıyla denendi |
 | 10 | Kargo | Çift gönderi yok; manuel yol çalışır | Bekliyor |
 | 11 | İptal ve iade | İade ödeneni aşamaz; çift iade yok | Bekliyor |
 | 12 | Raporlar ve ayarlar | Elle hesaplanan toplamla birebir | Bekliyor |
@@ -32,7 +32,17 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 8. Fatura bireysel veya kurumsal (unvan, vergi dairesi, vergi no). T.C. kimlik no istenmez.
 9. Siparişte e-posta zorunlu; misafirin gizli bağlantısı da oraya gider.
 
+## Aşama 9 iş kararları (25.11.2026)
+
+1. Sahte sağlayıcıyla başlandı; yalnızca bu bilgisayarda çalışır, deneme modu kapatılırsa açılamaz.
+2. Kart siparişinde stok 30 dakika ayrılır; ayarlanabilir.
+3. Yalnızca tek çekim; taksit altyapısı hazır, teklifler gelene kadar kapalı.
+4. "Kartımı hatırla" ilk sürümde yok.
+5. Çift ödeme kendiliğinden iade edilmez; panelde uyarı çıkar, iade Aşama 11'de.
+
 ## Proje sahibinin paralel işleri
+
+- [ ] Node.js'i 24.16 veya üstüne güncelleme (aşağıdaki teknik borç)
 
 - [ ] Kişisel bakım: hukukçuyla ürün güvenliği ve kozmetik mevzuatı. Netleşene kadar sistem bu ürünleri yayınlamaz.
 - [ ] Mali müşavir: ürün türlerine göre KDV oranları (panelde hazır oran yok)
@@ -47,6 +57,10 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 ## Teknik borçlar
 
+- Windows'ta Node 24.0–24.15, çok sayıda kısa bağlantıda iz bırakmadan çöküyor (nodejs/node#63620, kod 0xC0000409; 24.16'da düzeltildi, Linux'ta yok). 25.11.2026'da sunucu ve test süreci bu yüzden düştü; proje kodu içermeyen denemede de 3 turda 2 kez çöktü. Aşağıdaki "tarayıcı testleri ara sıra düşüyor" kaydının çökme kısmının nedeni de büyük olasılıkla budur.
+- Gerçek kart sağlayıcısı seçilince: kendi test ortamında deneme, zamanlanmış ödeme sorgusu, CSP'de sağlayıcı adresleri, sağlayıcının bildirim biçimine göre boyut denetimi, süresi dolan ödeme sayfasının yenilenmesi (şimdilik açık denemenin sayfa adresi hiç yenilenmez). Bir günden eski sonuçsuz deneme kendiliğinden sorgulanmaz.
+- Ödeme bildirimi adresine istek sınırı yok (Aşama 13); imzasız istek veritabanına ulaşmaz.
+- Sahte sağlayıcının denemeleri bellektedir; sunucu yeniden başlarsa açık deneme sonuçlanmaz.
 - Sipariş e-postaları bir sipariş işleminin ardından gönderilir. Süresi dolan siparişin iletisi sıradaki işleme kadar bekler; zamanlanmış gönderim gerçek e-posta sağlayıcısıyla kurulacak. Şimdilik yalnızca yerel test kutusuna gider.
 - Misafir, farklı telefon ve e-postalarla çok sayıda sipariş açıp stok ayırtabilir; istek sınırı Aşama 13'te.
 - Deneme modu; sözleşmeler taslakken veya kargo, hediye paketi ve kapıda ödeme KDV oranları girilmeden kapanmaz (hukukçu ve mali müşavir bekleniyor).

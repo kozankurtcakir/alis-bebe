@@ -1,5 +1,6 @@
 // Yerel Supabase adresini ve anahtarlarını .env.local dosyasına yazar. Var olan satırlara dokunmaz.
 import { execSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 
 const FILE = ".env.local";
@@ -20,6 +21,8 @@ const missing = Object.entries({
   SUPABASE_SECRET_KEY: () => read("SECRET_KEY"),
   MAIL_URL: () => "http://127.0.0.1:54324",
   SITE_URL: () => "http://localhost:3000",
+  PAYMENT_PROVIDER: () => "fake",
+  FAKE_PAYMENT_SECRET: () => randomBytes(32).toString("hex"),
 }).filter(([key]) => !new RegExp(`^${key}=`, "m").test(current));
 
 if (missing.length === 0) console.log(`${FILE} tamam; değiştirilmedi.`);

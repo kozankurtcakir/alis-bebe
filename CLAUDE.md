@@ -5,7 +5,7 @@ Bu dosya projenin ana talimat dosyasıdır. Her oturumda önce bu dosya okunur v
 ## Proje durumu
 
 - **Genel onay:** Proje sahibi 24.11.2026'da mimariyi, veritabanı taslağını, akışları, 15 aşamayı, görsel yönü ve bütçeyi onayladı; aşamaların sırayla kurulmasını istedi.
-- **Güncel aşama:** Aşama 0-8 tamam (25.11.2026); sırada Aşama 9 (kart ödemesi) tasarımı. Ayrıntı: `docs/asamalar.md`.
+- **Güncel aşama:** Aşama 0-9 tamam (25.11.2026); sırada Aşama 10 (kargo) tasarımı. Ayrıntı: `docs/asamalar.md`.
 - Bir karar kesinleştiğinde veya aşama bittiğinde bu bölüm, "Kararlar" bölümü ve `docs/asamalar.md` güncellenir.
 
 ## Belgeler
@@ -127,6 +127,7 @@ Altyapı bunları destekler; ancak hiçbir çıktı hukuki danışmanlık yerine
 - Mağaza: ziyaretçi tabloları okuyamaz, yalnızca `shop_*` fonksiyonlarını çağırır; SKU, barkod ve kesin stok verilmez. Fiyat ve stok önbelleğe alınmaz. Tükenen ürün listenin sonundadır.
 - Sepet ve hesap: girişte iki sepet birleşir, büyük adet kalır; misafir sepeti 30 gün, üye sepeti süresiz; bir varyanttan en fazla 10 adet, sepette 50 çeşit. Favori yalnızca üyeye. En fazla 10 adres, yalnızca Türkiye; ilçe elle yazılır; adres işlem geçmişine yazılmaz. İleti izni yalnızca Hesabım'da ve kapalı başlar.
 - Sipariş: Super Admin, Admin ve Order Manager onaylar. EFT'de tek kişi yeterli; bekleme 2 iş günü. Kapıda ödeme ve telefon doğrulaması ayarlanabilir, değerleri yayına yakın belirlenir. Kargo 200 TL, ara toplam 1.000 TL ve üzeriyse ücretsiz (hediye paketi hesaba katılmaz); ayarlanabilir. İsteyene sipariş başına 5 TL hediye paketi. Mağazadan teslimde kargo ücreti yok, mağazada ödenebilir; 7 gün beklenir, sonra panelde uyarı çıkar. Fatura bireysel veya kurumsal; T.C. kimlik no istenmez. Siparişte e-posta şart. Değişim, kısmi iade, mağazadan teslim ve taksit ilk sürümde var.
+- Kart: sahte sağlayıcıyla kuruldu, yalnızca yerelde çalışır; gerçek sağlayıcı seçilince onun test ortamında ayrıca denenmeden kart ödemesi çalışıyor sayılmaz. Stok 30 dk ayrılır (ayarlanabilir). Tek çekim açık, taksit altyapısı kapalı; "kartımı hatırla" yok. Çift ödeme kendiliğinden iade edilmez, panelde uyarı çıkar. Kart kapalı başlar.
 - Sabit yayın tarihi yok; aşama bazlı ilerlenir.
 - Geliştirme bilgisayarı: Windows 11, 16 GB RAM. Docker zorlanırsa ücretsiz bulut geliştirme projesine geçilir.
 - Görsel yön: Odunpazarı evleri. Petrol `#17454F`, hardal `#F4B942` (üzerinde petrol yazı), nar `#B93A4B`, nane `#CFE8E1`, zemin `#F4F9F8`. Yazı tipi: Baloo 2 ve Figtree.

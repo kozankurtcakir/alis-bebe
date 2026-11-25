@@ -31,7 +31,7 @@ export default async function AdminPage() {
       {
         label: "Para iadesi bekleyen",
         value: orders.refund,
-        href: `${list}cancelled`,
+        href: `${list}refund`,
       },
       {
         label: "Teslim süresi dolan",

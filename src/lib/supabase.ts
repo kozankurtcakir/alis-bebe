@@ -21,7 +21,7 @@ export async function createPublicClient() {
   );
 }
 
-/** Gizli anahtarla çalışır; yalnızca e-posta kuyruğu içindir. Anahtar yoksa null. */
+/** Gizli anahtarla çalışır; yalnızca e-posta kuyruğu ve kart bildirimi içindir. Anahtar yoksa null. */
 export function createServiceClient() {
   const key = env().SUPABASE_SECRET_KEY;
   if (!key) return null;

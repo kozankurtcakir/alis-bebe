@@ -2,8 +2,10 @@ import "server-only";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase";
+import { activeProvider } from "@/modules/payments/service";
 import type { OrderStatus } from "./labels";
 import {
+  attemptStatuses,
   deliveryMethods,
   orderStatuses,
   paymentMethods,
@@ -55,6 +57,8 @@ const optionsSchema = z.object({
   shipping_fee: z.number(),
   free_shipping_from: z.number(),
   gift_fee: z.number(),
+  card: z.boolean(),
+  card_minutes: z.number(),
   transfer: z.boolean(),
   transfer_days: z.number(),
   cod: z.boolean(),
@@ -81,7 +85,9 @@ export async function getCheckoutOptions() {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("checkout_options");
   if (error) throw new Error(`Ödeme seçenekleri okunamadı: ${error.code}`);
-  return optionsSchema.parse(data);
+  const options = optionsSchema.parse(data);
+  // Sağlayıcı bu sunucuda kurulu değilse kart gösterilmez.
+  return { ...options, card: options.card && activeProvider() !== null };
 }
 
 export const ORDER_NO = /^AB[2-9A-HJ-NP-Z]{10}$/;
@@ -99,6 +105,7 @@ const orderSchema = z.object({
   ...money,
   payment_due_at: z.string().nullable(),
   can_cancel: z.boolean(),
+  can_pay: z.boolean(),
   bank: z.object({ holder: z.string(), iban: z.string() }).nullable(),
   pickup: z
     .object({ address: z.string(), until: z.string().nullable() })
@@ -139,7 +146,7 @@ const rowSchema = z.object({
 });
 
 export async function listOrders(filter: {
-  status: OrderStatus | "";
+  status: OrderStatus | "refund" | "";
   query: string;
   page: number;
 }) {
@@ -187,6 +194,18 @@ const detailSchema = z.object({
       matched_by: z.string(),
       confirmed_at: z.string().nullable(),
       confirmed_by: z.string().nullable(),
+    }),
+  ),
+  attempts: z.array(
+    z.object({
+      id: z.string(),
+      amount: z.number(),
+      paid_amount: z.number().nullable(),
+      installments: z.number(),
+      status: keys(attemptStatuses),
+      ref: z.string().nullable(),
+      error_code: z.string().nullable(),
+      created_at: z.string(),
     }),
   ),
   history: z.array(
@@ -240,6 +259,8 @@ const settingsRow = z.object({
   transfer_days: num,
   transfer_two_person: flag,
   holidays: z.array(z.string()),
+  card_enabled: flag,
+  card_minutes: num,
   cod_enabled: flag,
   cod_limit: num,
   cod_fee: num,
