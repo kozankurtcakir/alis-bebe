@@ -5,6 +5,13 @@ const schema = z.object({
   SUPABASE_URL: z.url(),
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   SITE_URL: z.url(),
+  // E-posta kuyruğu için; yoksa ileti gönderilmez, kuyrukta bekler.
+  SUPABASE_SECRET_KEY: z.string().min(1).optional(),
+  // Yayına kadar yalnızca bu bilgisayardaki test posta kutusu.
+  MAIL_URL: z
+    .url()
+    .refine((v) => ["127.0.0.1", "localhost"].includes(new URL(v).hostname))
+    .optional(),
 });
 
 let cached: z.infer<typeof schema> | undefined;

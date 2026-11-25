@@ -83,7 +83,19 @@ export function CartList({ cart }: { cart: Cart }) {
               <span data-testid="ara-toplam">{formatPrice(cart.subtotal)}</span>
             </p>
             <p className="text-sm">KDV dahil, kargo hariç.</p>
-            <p>Sipariş yakında açılıyor. Sepetteki ürünler size ayrılmaz.</p>
+            <p>Sepetteki ürünler sipariş verene kadar size ayrılmaz.</p>
+            {cart.items.every((i) => i.state === "ok") ? (
+              <Link
+                href="/odeme"
+                className="flex min-h-12 items-center justify-center rounded-full bg-hardal px-6 font-semibold hover:bg-hardal/80"
+              >
+                Siparişi tamamla
+              </Link>
+            ) : (
+              <p className="font-semibold">
+                Sipariş için yukarıdaki uyarıları giderin.
+              </p>
+            )}
           </section>
         </div>
       )}

@@ -12,7 +12,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 | 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Tamam (25.11.2026); proje sahibi onayladı |
 | 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Tamam (25.11.2026); proje sahibi onayladı |
 | 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Tamam (25.11.2026); proje sahibi onayladı |
-| 8 | Sipariş, EFT, kapıda ödeme | Geçerli ve yasak tüm durum geçişleri testli | Bekliyor |
+| 8 | Sipariş, EFT, kapıda ödeme, mağazadan teslim | Geçerli ve yasak tüm durum geçişleri testli | Tamam (25.11.2026); proje sahibi onayladı |
 | 9 | Kart ödemesi | Başarılı, red, tekrar, gecikme, sahte bildirim testli | Bekliyor |
 | 10 | Kargo | Çift gönderi yok; manuel yol çalışır | Bekliyor |
 | 11 | İptal ve iade | İade ödeneni aşamaz; çift iade yok | Bekliyor |
@@ -20,13 +20,17 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 | 13 | Yayın hazırlığı | Uzman kontrolü tamam; kritik bulgu yok | Bekliyor |
 | 14 | Yayın | Geri yükleme testi; gerçek sipariş ve iade başarılı | Bekliyor |
 
-## Açık iş soruları (Aşama 8'den önce)
+## Aşama 8 iş kararları (25.11.2026)
 
-1. Siparişi kim onaylayacak? EFT'de görev ayrılığı (iki kişi) uygulanacak mı?
-2. EFT bekleme süresi, kapıda ödeme limiti ve ek ücreti? Kuryeye kartla ödeme?
-3. Kargo ücreti ve ücretsiz kargo sınırı?
-4. Değişim, kısmi iade, mağazadan teslim, taksit?
-5. Hediye paketi veya notu? (Kupon, kampanya ve yorum şimdilik kapsam dışı.)
+1. Siparişi Super Admin, Admin ve Order Manager onaylar. EFT'de tek kişi yeterli.
+2. EFT 2 iş günü bekler; sonra sipariş iptal olur, stok serbest kalır.
+3. Kapıda ödeme (limit, ek ücret, kuryeye kart) ve telefon doğrulaması ayarlanabilir; değerler yayına yakın belirlenir.
+4. Kargo 200 TL; ara toplam 1.000 TL ve üzeriyse ücretsiz, hediye paketi hesaba katılmaz. Ayarlanabilir.
+5. Değişim, kısmi iade, mağazadan teslim ve taksit ilk sürümde var.
+6. İsteyen müşteriye sipariş başına 5 TL'ye hediye paketi. Kupon, kampanya ve yorum kapsam dışı.
+7. Mağazadan teslimde kargo ücreti yok; EFT veya mağazada ödeme (nakit/POS). Tahsilat yazılmadan teslim edilmez. 7 gün sonra panelde uyarı, iptali personel yapar.
+8. Fatura bireysel veya kurumsal (unvan, vergi dairesi, vergi no). T.C. kimlik no istenmez.
+9. Siparişte e-posta zorunlu; misafirin gizli bağlantısı da oraya gider.
 
 ## Proje sahibinin paralel işleri
 
@@ -43,6 +47,11 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 ## Teknik borçlar
 
+- Sipariş e-postaları bir sipariş işleminin ardından gönderilir. Süresi dolan siparişin iletisi sıradaki işleme kadar bekler; zamanlanmış gönderim gerçek e-posta sağlayıcısıyla kurulacak. Şimdilik yalnızca yerel test kutusuna gider.
+- Misafir, farklı telefon ve e-postalarla çok sayıda sipariş açıp stok ayırtabilir; istek sınırı Aşama 13'te.
+- Deneme modu; sözleşmeler taslakken veya kargo, hediye paketi ve kapıda ödeme KDV oranları girilmeden kapanmaz (hukukçu ve mali müşavir bekleniyor).
+- Para iadesinin kendisi Aşama 11'de; o zamana kadar panelde "Para iadesi bekleyen" olarak görünür.
+- Aynı sekmede ikinci sipariş testi, istek anahtarı sayfadan verilmeden önceki kodda da geçiyordu; yani o değişiklik önlemdir, gösterilmiş bir hatanın düzeltmesi değildir.
 - Tarayıcı testleri yoğun bilgisayarda ara sıra düşüyor (25.11.2026: 5 saniye sınırı iki kez, test sürecinin çökmesi bir kez). Testler tek başına geçiyor; kesin neden bulunmadı. Çöken test temizliğini yapamaz, sahte ürünü kalır.
 - Sepet açmaya istek sınırı yok (Aşama 13). Süresi dolan misafir sepetleri, yeni misafir sepeti açıldıkça 100'er silinir.
 - Sepet birleşirken 50 çeşidi aşan misafir ürünleri eklenmez.

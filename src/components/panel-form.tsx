@@ -22,6 +22,7 @@ export function PanelForm({
   resetOnOk,
   check,
   once,
+  primary,
   children,
 }: {
   action: (state: PanelState, form: FormData) => Promise<PanelState>;
@@ -39,6 +40,8 @@ export function PanelForm({
   check?: (form: FormData) => string | undefined;
   /** İstek, tek kullanımlık `key` taşır; yeniden gönderilirse iki kez işlenmez. */
   once?: boolean;
+  /** Sayfanın ana işi; düğme belirgin olur. */
+  primary?: boolean;
   children?: ReactNode;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -82,7 +85,11 @@ export function PanelForm({
         {!readOnly && (
           <button
             disabled={pending}
-            className="min-h-11 rounded-xl border border-petrol px-4 font-semibold hover:bg-nane disabled:opacity-60"
+            className={
+              primary
+                ? "min-h-12 w-full rounded-full bg-hardal px-6 py-2 font-semibold hover:bg-hardal/80 disabled:opacity-60"
+                : "min-h-11 rounded-xl border border-petrol px-4 font-semibold hover:bg-nane disabled:opacity-60"
+            }
           >
             {pending ? "Bekleyin…" : submit}
             {subject && <span className="sr-only"> ({subject})</span>}

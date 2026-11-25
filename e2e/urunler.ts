@@ -95,7 +95,7 @@ export function seed(category: string, p: Seed) {
   ].join("\n");
 }
 
-/** Kategoriyi ürünleri, görselleri ve sepet kayıtlarıyla birlikte siler. */
+/** Kategoriyi ürünleri, görselleri, sepet kayıtları ve deneme siparişleriyle birlikte siler. */
 export async function removeCategory(category: string) {
   const products = "(select product_id from silinecek)";
   const variants = `(select id from public.product_variants where product_id in ${products})`;
@@ -103,6 +103,30 @@ export async function removeCategory(category: string) {
     create temp table silinecek on commit drop as
       select pc.product_id from public.product_categories pc
       join public.categories c on c.id = pc.category_id where c.slug = '${category}';
+    create temp table sil_siparis on commit drop as
+      select distinct order_id from public.order_items where variant_id in ${variants};
+    -- Sipariş ve stok hareketi bilerek silinemez; tetikleyiciler yalnızca bu işlemde atlanır.
+    set local session_replication_role = replica;
+    delete from public.stock_movements where variant_id in ${variants};
+    delete from public.stock_reservations where variant_id in ${variants};
+    delete from public.outbox_jobs where payload ->> 'order_id' in (select order_id::text from sil_siparis);
+    delete from public.bank_transfers where payment_id in (
+      select id from public.payments where order_id in (select order_id from sil_siparis));
+    ${[
+      "payments",
+      "order_legal_acceptances",
+      "order_access_tokens",
+      "order_status_history",
+      "order_addresses",
+      "order_items",
+    ]
+      .map(
+        (t) =>
+          `delete from public.${t} where order_id in (select order_id from sil_siparis);`,
+      )
+      .join(" ")}
+    delete from public.orders where id in (select order_id from sil_siparis);
+    set local session_replication_role = origin;
     delete from public.cart_items where variant_id in ${variants};
     delete from public.favorites where product_id in ${products};
     update public.products set status = 'draft' where id in ${products};

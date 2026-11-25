@@ -49,8 +49,8 @@ Mağaza (Aşama 6): `anon` hiçbir tabloyu okuyamaz. `shop_categories`, `shop_pr
 | Tablo | Alanlar | Kural |
 |---|---|---|
 | `inventory` | `variant_id` (PK), `on_hand`, `reserved`, `critical_level` | `CHECK (0 <= reserved AND reserved <= on_hand)` |
-| `stock_movements` | `seq`, `variant_id`, `delta`, `on_hand_after`, `reason`, `note?`, `actor_id?`, `idempotency_key`, `reverses_id?` | Yalnızca ekleme; `idempotency_key` ve `reverses_id` benzersiz. `order_id?` Aşama 8'de eklenir |
-| `stock_reservations` (Aşama 8) | `order_item_id`, `variant_id`, `quantity`, `expires_at?`, `status` | `status`: `active`, `consumed`, `released` |
+| `stock_movements` | `seq`, `variant_id`, `delta`, `on_hand_after`, `reason`, `note?`, `actor_id?`, `idempotency_key`, `reverses_id?` | Yalnızca ekleme; `idempotency_key` ve `reverses_id` benzersiz. `order_id?` yalnızca `sale`, `cancel`, `return` hareketinde doludur |
+| `stock_reservations` (Aşama 8) | `order_item_id`, `variant_id`, `quantity`, `status` | `status`: `active`, `consumed`, `released` |
 
 Hareket nedenleri: `initial`, `purchase`, `adjustment`, `sale`, `cancel`, `return`, `damage`, `import`, `reversal`. Sayım `adjustment` olarak yazılır.
 
@@ -82,20 +82,22 @@ Değişmez eşitlikler:
 
 | Tablo | Alanlar | Kural |
 |---|---|---|
-| `orders` | `order_no`, `user_id?`, `email`, `phone`, `payment_method`, `order_status`, `payment_status`, `shipment_status`, `subtotal`, `shipping_fee`, `cod_fee`, `discount`, `total`, `approved_by?`, `approved_at?`, `idempotency_key` | `total` = ara toplam + ücretler − indirim; `order_no` tahmin edilemez |
+| `orders` | `order_no`, `user_id?`, `contact_name`, `email`, `phone`, `delivery_method`, `payment_method`, `order_status`, `payment_status`, `shipment_status`, `subtotal`, `shipping_fee`, `gift_fee`, `cod_fee`, `discount`, `total`, `gift_wrap`, `phone_verified_by?`, `phone_verified_at?`, `approved_by?`, `approved_at?`, `payment_due_at?`, `ready_at?`, `cancel_code?`, `idempotency_key` | `total` = ara toplam + ücretler − indirim; `order_no` tahmin edilemez; içerik sonradan değişmez, sipariş silinmez. `cancel_code`: `customer`, `staff`, `expired` |
 | `order_items` | `order_id`, `variant_id`, `name`, `sku`, `color`, `size`, `unit_price`, `vat_bps`, `quantity`, `cancelled_qty`, `returned_qty` | İptal + iade ≤ adet |
 | `order_addresses` | `order_id`, `kind`, adres alanları, `company?`, `tax_office?`, `tax_no?` | Teslimat/fatura kopyası |
 | `order_status_history` | `order_id`, `field`, `from`, `to`, `actor_id?`, `note?` | Yalnızca ekleme |
-| `order_access_tokens` | `order_id`, `token_hash`, `expires_at` | Düz kod saklanmaz |
-| `invoices` | `order_id`, `invoice_no`, `issued_at`, `file_path` | Özel depolama |
+| `order_access_tokens` | `order_id`, `token_hash`, `expires_at` | Düz kod saklanmaz; süre `link_days` ayarı |
+| `invoices` (sonra) | `order_id`, `invoice_no`, `issued_at`, `file_path` | Özel depolama |
+
+Sipariş tablolarına kimse doğrudan yazamaz. Müşteri `checkout_options`, `place_order`, `get_order`, `cancel_my_order`, `my_orders`; personel `list_orders`, `order_detail`, `order_summary`, `match_transfer`, `confirm_transfer`, `verify_order_phone`, `add_order_note`, `approve_order`, `advance_order`, `collect_store_payment`, `cancel_order`, `set_settings` çağırır. `claim_emails` ve `finish_email` yalnızca `service_role` içindir. Süresi dolan EFT siparişlerini `pg_cron` her 5 dakikada `private.expire_orders` ile iptal eder. Durum geçişlerini `private.guard_order` tetikleyicisi denetler.
 
 ## Ödeme (Aşama 8–9)
 
 | Tablo | Alanlar | Kural |
 |---|---|---|
-| `payments` | `order_id`, `provider`, `provider_ref?`, `amount`, `status`, `idempotency_key` | Kart numarası/CVV alanı yoktur |
+| `payments` | `order_id`, `provider`, `amount`, `status`, `collected_as?`, `collected_by?`, `paid_at?` | Sipariş başına bir kayıt; `collected_as`: mağazada `cash` veya `card`. Kart numarası/CVV alanı yoktur; `provider_ref` Aşama 9'da eklenir |
 | `payment_events` | `provider`, `event_id`, `payment_id?`, `payload jsonb`, `processed_at?` | `(provider, event_id)` benzersiz; hassas alanlar temizlenir |
-| `bank_transfers` | `payment_id`, `receipt_path?`, `matched_by?`, `confirmed_by?`, `confirmed_at?` | Eşleştiren ile onaylayan farklı olur (ayarla değiştirilebilir) |
+| `bank_transfers` | `payment_id`, `amount`, `reference`, `matched_by`, `matched_at`, `confirmed_by?`, `confirmed_at?`, `idempotency_key` | `reference` benzersiz: aynı banka işlemi iki siparişe yazılamaz. İki ayrı kişi şartı ayarla açılır (kapalı) |
 | `refunds` | `payment_id`, `return_request_id?`, `amount`, `status`, `requested_by`, `approved_by?`, `provider_ref?` | Toplam ≤ ödenen |
 | `cod_settlements` | `shipment_id`, `expected`, `received?`, `received_at?`, `status` | Aşama 10 |
 
@@ -119,12 +121,12 @@ Değişmez eşitlikler:
 
 | Tablo | Alanlar | Aşama |
 |---|---|---|
-| `legal_documents` | `kind`, `version`, `body`, `published_at` | 8 |
-| `order_legal_acceptances` | `order_id`, `document_id`, `rendered_body`, `accepted_at`, `ip` | 8 |
+| `legal_documents` | `kind`, `version`, `title`, `body`, `is_draft`, `published_at` | 8; taslak varken deneme modu kapanmaz |
+| `order_legal_acceptances` | `order_id`, `document_id`, `rendered_body`, `accepted_at` | 8; yalnızca ekleme. `ip` Aşama 13'te |
 | `consents` | `seq`, `user_id`, `kind`, `granted`, `source`, `at` | 7; yalnızca ekleme, son kayıt geçerli |
-| `outbox_jobs` | `kind`, `payload`, `status`, `attempts`, `run_after`, `dedupe_key` | 8 |
-| `notifications` | `user_id?`, `kind`, `data`, `read_at?` | 8 |
-| `settings` | `key`, `value jsonb`, `is_sensitive` | 12 (ihtiyaç olan anahtar daha önce eklenebilir) |
+| `outbox_jobs` | `kind`, `payload`, `status`, `attempts`, `run_after`, `dedupe_key` | 8; gizli kod kuyrukta durmaz, gönderilirken üretilir |
+| `notifications` | `user_id?`, `kind`, `data`, `read_at?` | Kurulmadı; gerekirse Aşama 12 |
+| `settings` | `key`, `value jsonb`, `updated_by?` | 8'de sipariş ayarlarıyla kuruldu; yalnızca Super Admin, her değişiklik işlem geçmişinde |
 
 ## Dosya depolama
 

@@ -61,13 +61,16 @@ Ek kurallar:
 | `pending_payment` | `awaiting_approval`, `cancelled` |
 | `awaiting_approval` | `approved`, `cancelled` |
 | `approved` | `preparing`, `cancelled` |
-| `preparing` | `shipped`, `cancelled` |
+| `preparing` | kargoda `shipped`, mağazadan teslimde `ready_for_pickup`; `cancelled` |
+| `ready_for_pickup` | `delivered` (ödeme alınmışsa), `cancelled` |
 | `shipped` | `delivered`, `returned_to_sender` |
 | `delivered`, `cancelled`, `returned_to_sender` | son durum |
 
-Kart ve EFT `pending_payment` ile, kapıda ödeme telefon doğrulandıktan sonra `awaiting_approval` ile başlar. `awaiting_approval` durumuna kart/EFT ödemesi doğrulanmadan geçilemez.
+Kart ve EFT `pending_payment` ile, kapıda ödeme ve mağazada ödeme `awaiting_approval` ile başlar. `awaiting_approval` durumuna kart/EFT ödemesi doğrulanmadan geçilemez. Ayar açıksa kapıda ödeme, telefon doğrulanmadan onaylanamaz.
 
-**Ödeme:** `pending`, `paid`, `failed`, `cod_due`, `cod_collected`, `partially_refunded`, `refunded`
+Tek istisna: süresi dolduğu için iptal olan (`cancel_code = expired`) siparişin tam parası sonradan onaylanır ve stok yeterse sipariş `awaiting_approval` durumuna döner; stok yoksa veya tutar eksikse `refund_pending` olur.
+
+**Ödeme:** `pending`, `review`, `paid`, `cancelled`, `cod_due`, `cod_collected`, `refund_pending`, `partially_refunded`, `refunded` (`failed` Aşama 9'da)
 
 **Kargo:** `none`, `created`, `handed_over`, `in_transit`, `delivered`, `failed`, `returned`
 
@@ -92,6 +95,10 @@ Satırlar her zaman `variant_id` sırasıyla kilitlenir. Rezervasyon süresi (ay
 - Bildirim gelmezse durum sağlayıcıdan sorgulanır.
 - Rezervasyon bittikten sonra ödeme gelirse stok yeniden ayrılır; yoksa iade başlatılır ve uyarı verilir.
 - Dekont kanıt değildir; paranın hesapta görülmesi gerekir. Eksik/fazla EFT incelemeye düşer.
+- EFT'de bir kişi eşleştirip onaylayabilir; iki ayrı kişi şartı ayarla açılır. Yalnızca onaylanan havaleler toplanır.
+- Parası bankada görülen sipariş süre bitiminde iptal olmaz. Ödenmiş veya parası görülmüş sipariş iptal edilirse `refund_pending` olur; iadenin kendisi Aşama 11'dedir.
+- Aynı telefon, e-posta veya üyelikle en fazla 3 ödenmemiş sipariş (ayarlanabilir).
+- Mağazada tahsilat `ready_for_pickup` durumunda yazılır; yazılmadan teslim edilmez. `pickup_days` dolunca panelde uyarı çıkar, sistem kendiliğinden iptal etmez.
 - Kapıda teslim, tahsilat sayılmaz; firma ödemesi `cod_settlements` ile eşleştirilir.
 
 ## 5. İptal ve iade

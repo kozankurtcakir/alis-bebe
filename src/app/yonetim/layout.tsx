@@ -25,6 +25,11 @@ export default function AdminLayout({
 const links: { href: string; label: string; permission: string[] | string }[] =
   [
     { href: "/yonetim", label: "Özet", permission: "dashboard.read" },
+    {
+      href: "/yonetim/siparisler",
+      label: "Siparişler",
+      permission: "orders.read",
+    },
     { href: "/yonetim/katalog", label: "Ürünler", permission: "catalog.read" },
     {
       href: "/yonetim/katalog/kategoriler",
@@ -51,6 +56,11 @@ const links: { href: string; label: string; permission: string[] | string }[] =
       href: "/yonetim/islem-gecmisi",
       label: "İşlem geçmişi",
       permission: "audit.read",
+    },
+    {
+      href: "/yonetim/ayarlar",
+      label: "Ayarlar",
+      permission: "settings.critical",
     },
   ];
 

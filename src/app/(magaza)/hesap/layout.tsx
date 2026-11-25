@@ -4,6 +4,7 @@ export const instant = false;
 
 const links = [
   { href: "/hesap", label: "Bilgilerim" },
+  { href: "/hesap/siparisler", label: "Siparişlerim" },
   { href: "/hesap/adresler", label: "Adreslerim" },
   { href: "/hesap/favoriler", label: "Favorilerim" },
   { href: "/hesap/izinler", label: "İleti izinleri" },

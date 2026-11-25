@@ -36,6 +36,8 @@ export const config = {
     "/kategori/:path*",
     "/urun/:path*",
     "/sepet",
+    "/odeme",
+    "/siparis/:path*",
     "/giris",
     "/kayit",
     "/onay",
