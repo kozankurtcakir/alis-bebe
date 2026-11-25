@@ -14,7 +14,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 | 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Tamam (25.11.2026); proje sahibi onayladı |
 | 8 | Sipariş, EFT, kapıda ödeme, mağazadan teslim | Geçerli ve yasak tüm durum geçişleri testli | Tamam (25.11.2026); proje sahibi onayladı |
 | 9 | Kart ödemesi | Başarılı, red, tekrar, gecikme, sahte bildirim testli | Tamam (25.11.2026); proje sahibi onayladı. Yalnızca sahte sağlayıcıyla denendi |
-| 10 | Kargo | Çift gönderi yok; manuel yol çalışır | Bekliyor |
+| 10 | Kargo | Çift gönderi yok; manuel yol çalışır | Tamam (26.11.2026); proje sahibi onayladı. Firma bağlantısı yok, yalnızca manuel yol |
 | 11 | İptal ve iade | İade ödeneni aşamaz; çift iade yok | Bekliyor |
 | 12 | Raporlar ve ayarlar | Elle hesaplanan toplamla birebir | Bekliyor |
 | 13 | Yayın hazırlığı | Uzman kontrolü tamam; kritik bulgu yok | Bekliyor |
@@ -39,6 +39,15 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 3. Yalnızca tek çekim; taksit altyapısı hazır, teklifler gelene kadar kapalı.
 4. "Kartımı hatırla" ilk sürümde yok.
 5. Çift ödeme kendiliğinden iade edilmez; panelde uyarı çıkar, iade Aşama 11'de.
+
+## Aşama 10 iş kararları (25.11.2026)
+
+1. Şimdilik yalnızca manuel yol; firma API'si seçildikten sonra eklenecek. Firma listesi boş başlar, panelden eklenir.
+2. Bölünmüş gönderi ilk sürümde yok; tablolar hazır.
+3. "Kargoya verildi" için takip numarası zorunlu; yanlış numara kargodayken düzeltilebilir.
+4. İlçe, 81 ilin listesinden seçilir.
+5. Firma API'sine kadar A6 adres etiketi basılır.
+6. Kapıda ödeme parası sipariş başına elle yazılır; yalnızca Super Admin ve Admin.
 
 ## Proje sahibinin paralel işleri
 
@@ -70,7 +79,11 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 - Sepet açmaya istek sınırı yok (Aşama 13). Süresi dolan misafir sepetleri, yeni misafir sepeti açıldıkça 100'er silinir.
 - Sepet birleşirken 50 çeşidi aşan misafir ürünleri eklenmez.
 - Sepete 10 adede kadar ekleyerek düşük stok tahmin edilebilir; bilerek kabul edildi.
-- İlçe elle yazılıyor; liste kargo aşamasında (Aşama 10) ele alınacak.
+- İlçe listesi iki açık kaynaktan karşılaştırıldı (973 ilçe, aynı); resmî kaynakla yayından önce bir kez daha karşılaştırılacak. Yeni ilçe migration ile eklenir. Listede olmayan ilçeyle kayıtlı eski adres düzenlenmeden siparişte kullanılamaz.
+- Firma bağlantısı yok: durum kendiliğinden güncellenmez, etikette firma barkodu yok. Toplu etiket ve toplu "kargoya verildi" yok.
+- Kargo firmasının kestiği hizmet bedeli ayrı yazılmıyor; tutar eksik gelirse uyarı kalır. Nasıl yatırdığı firma seçilince netleşecek.
+- Önceden ödenmiş sipariş mağazaya geri dönerse para iadesi kendiliğinden başlamaz ve "Para iadesi bekleyen" listesine girmez; Aşama 11'de ele alınacak.
+- 26.11.2026'da bir tam turda test sunucusu kapandı (kayıt bulunamadı, neden kanıtlanmadı; Node hatasıyla uyumlu). Sonraki tam turlar temiz geçti.
 - Hesap silme Aşama 13'te, hukukçuyla.
 - Olmayan ürün ve kategori sayfası 200 durumuyla ve `noindex` ile döner (Next `cacheComponents` sınırı); gerçek 404 Aşama 13'te SEO ile ele alınacak.
 - Arama sözcük başına bakar, yazım hatasını düzeltmez: "zıbınlar", adı "zıbın" olan ürünü bulmaz.

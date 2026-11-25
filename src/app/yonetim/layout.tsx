@@ -41,6 +41,11 @@ const links: { href: string; label: string; permission: string[] | string }[] =
       label: "Seçim listeleri",
       permission: "catalog.read",
     },
+    {
+      href: "/yonetim/kargo",
+      label: "Kargo firmaları",
+      permission: "shipping.read",
+    },
     { href: "/yonetim/stok", label: "Stok", permission: "stock.read" },
     {
       href: "/yonetim/excel",
@@ -72,7 +77,7 @@ async function AdminNav() {
   return (
     <nav
       aria-label="Yönetim"
-      className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-gri pb-3"
+      className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-gri pb-3 print:hidden"
     >
       {links
         .filter((l) =>

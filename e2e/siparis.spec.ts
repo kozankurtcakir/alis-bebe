@@ -19,6 +19,7 @@ const tag = newTag();
 const category = `test-${tag}`;
 const name = `Siparişlik Tulum ${tag}`;
 const url = `/urun/tulum-${tag}`;
+const carrier = `Kargo ${tag}`;
 
 test.beforeAll(async () => {
   const image = await uploadImage("#cfe8e1");
@@ -35,6 +36,8 @@ test.beforeAll(async () => {
         ["mavi", "0-3A", 10000, null, 500],
       ],
     })}
+    insert into public.carriers (name, url_template)
+    values ('${carrier}', 'https://kargo.test/takip?no={no}');
     commit;`);
 });
 
@@ -101,7 +104,7 @@ async function fillContact(page: Page, email?: string) {
 
 async function fillAddress(page: Page) {
   await page.getByLabel("İl", { exact: true }).selectOption("Eskişehir");
-  await page.getByLabel("İlçe").fill("Odunpazarı");
+  await page.getByLabel("İlçe").selectOption("Odunpazarı");
   await page.getByLabel("Açık adres").fill("Deneme Mahallesi 1");
 }
 
@@ -139,6 +142,16 @@ async function staff(browser: Browser, role: string) {
   await setUpMfa(page);
   page.on("dialog", (d) => d.accept());
   return { page, email };
+}
+
+/** Gönderiyi açar, takip numarasını yazar ve kargoya verir. */
+async function ship(page: Page, tracking: string) {
+  await button(page, "Gönderi oluştur").click();
+  await page.getByLabel("Kargo firması").selectOption(carrier);
+  await page.getByLabel("Takip numarası").fill(tracking);
+  await button(page, "Takip bilgisini kaydet").click();
+  await button(page, "Kargoya verildi").click();
+  await expect(button(page, "Takip bilgisini düzelt")).toBeVisible();
 }
 
 async function openInPanel(page: Page, no: string) {
@@ -439,14 +452,14 @@ test("panel: EFT onayı, sipariş onayı, kargo ve teslim", async ({
   await button(admin, "Siparişi onayla").click();
   await expect(button(admin, "Duruma geç: Hazırlanıyor")).toBeVisible();
   await button(admin, "Duruma geç: Hazırlanıyor").click();
-  await button(admin, "Duruma geç: Kargoda").click();
+  await ship(admin, `T${no}`);
   await expect(button(admin, "Siparişi iptal et")).toHaveCount(0);
-  await button(admin, "Duruma geç: Teslim edildi").click();
+  await button(admin, "Teslim edildi").click();
   await expect(
     admin.getByText("Sipariş: Kargoda → Teslim edildi"),
   ).toBeVisible();
   await page.goto(`/siparis/${no}`);
-  await expect(page.getByText("Teslim edildi")).toBeVisible();
+  await expect(page.getByText("Teslim edildi").first()).toBeVisible();
   expect(
     sql(`select string_agg(delta::text, ',') from public.stock_movements m
          join public.orders o on o.id = m.order_id where o.order_no = '${no}'`),
@@ -1117,4 +1130,342 @@ test("kart: üye, mağazadan teslim siparişini kartla öder", async ({ page }) 
   await button(page, "Ödemeyi onayla").click();
   await fact(page, "Kredi/banka kartı · Ödendi");
   await expect(page).toHaveURL(`/siparis/${no}`);
+});
+
+// --- Kargo ------------------------------------------------------------------
+
+/** Veritabanını personelin kendi oturumuyla çağırır. */
+function session(email: string) {
+  const claims =
+    sql(`select json_build_object('sub', u.id, 'role', 'authenticated', 'aal', 'aal2', 'session_id', s.id)
+    from auth.users u join auth.sessions s on s.user_id = u.id
+    where u.email = '${email}' order by s.created_at desc limit 1`);
+  return (query: string) =>
+    psql(`begin; select set_config('request.jwt.claims', '${claims}', true); set local role authenticated;
+          ${query}; commit;`);
+}
+
+/** Kapıda ödemeli siparişi hazırlanma aşamasına getirir. */
+async function preparing(
+  browser: Browser,
+  as: (query: string) => Promise<string>,
+) {
+  const page = await separate(browser);
+  await toCheckout(page);
+  await page.getByRole("radio", { name: "Kapıda ödeme" }).check();
+  const email = newEmail();
+  await fillContact(page, email);
+  await fillAddress(page);
+  await accept(page);
+  await submit(page).click();
+  const no = await placed(page);
+  const id = sql(`select id from public.orders where order_no = '${no}'`);
+  for (const step of [
+    `verify_order_phone('${id}')`,
+    `approve_order('${id}')`,
+    `advance_order('${id}', 'preparing')`,
+  ]) {
+    expect(await as(`select public.${step}`)).not.toContain("HATA");
+  }
+  return { page, no, id, email };
+}
+
+test("ilçe listesi seçilen ile göre değişir", async ({ page }) => {
+  await toCheckout(page);
+  const city = page.getByLabel("İl", { exact: true });
+  const district = page.getByLabel("İlçe");
+  await expect(district.locator("option")).toHaveText(["Önce il seçin"]);
+  await fillAddress(page);
+  await city.selectOption("Bursa");
+  await expect(district).toHaveValue("");
+  await expect(
+    district.locator("option", { hasText: "Odunpazarı" }),
+  ).toHaveCount(0);
+  await district.selectOption("Nilüfer");
+  await city.selectOption("Yalova");
+  await expect(district).toHaveValue("");
+
+  // Sayfada oynanan ilçe sunucuda reddedilir.
+  const email = newEmail();
+  await fillContact(page, email);
+  await accept(page);
+  await district.evaluate((e: HTMLSelectElement) => {
+    e.add(new Option("Nilüfer", "Nilüfer"));
+    e.value = "Nilüfer";
+  });
+  await submit(page).click();
+  await expect(alert(page)).toContainText("İlçe seçin.");
+  expect(
+    sql(`select count(*) from public.orders where email = '${email}'`),
+  ).toBe("0");
+});
+
+test("kargo: gönderi, etiket, takip, e-posta, teslim ve kapıda tahsilat", async ({
+  browser,
+}) => {
+  test.slow();
+  const { page: admin, email: adminEmail } = await staff(browser, "admin");
+  const { page: manager, email } = await staff(browser, "order_manager");
+  const o = await preparing(browser, session(email));
+  const code = `t${randomInt(10_000_000, 99_999_999)}`;
+  const T = code.toUpperCase();
+
+  await openInPanel(manager, o.no);
+  await expect(button(manager, "Kargoya verildi")).toHaveCount(0);
+  // Çift tıklama tek gönderi üretir.
+  await button(manager, "Gönderi oluştur").evaluate((b: HTMLButtonElement) => {
+    b.click();
+    b.click();
+  });
+  await fact(manager, `${o.no}-1`);
+  await accessible(manager);
+  await narrow(manager);
+  await expect(button(manager, "Kargoya verildi")).toHaveCount(0);
+  await manager.getByLabel("Kargo firması").selectOption(carrier);
+  await manager.getByLabel("Takip numarası").fill("12");
+  await button(manager, "Takip bilgisini kaydet").click();
+  await expect(alert(manager)).toContainText("Takip numarası 5-40");
+  await manager.getByLabel("Takip numarası").fill(` ${code} `);
+  await button(manager, "Takip bilgisini kaydet").click();
+  await fact(manager, T);
+
+  // Müşteri, paket yola çıkmadan takip bilgisini görmez.
+  await o.page.reload();
+  await expect(o.page.getByText(T)).toHaveCount(0);
+
+  const popup = manager.waitForEvent("popup");
+  await manager.getByRole("link", { name: /Etiketi yazdır/ }).click();
+  const paper = await popup;
+  const label = paper.getByRole("region", { name: "Etiket" });
+  await expect(label).toContainText("Odunpazarı / Eskişehir");
+  await expect(label).toContainText("Kapıda ödeme: ₺315,00");
+  await expect(label).toContainText(T);
+  await accessible(paper);
+  await narrow(paper);
+  await paper.emulateMedia({ media: "print" });
+  await expect(paper.getByRole("navigation")).toHaveCount(0);
+  await expect(button(paper, "Yazdır")).toBeHidden();
+  await expect(label).toBeVisible();
+  if (browser.browserType().name() === "chromium") {
+    const pdf = (await paper.pdf({ preferCSSPageSize: true })).toString(
+      "latin1",
+    );
+    expect(pdf.match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
+    // A6: 105 x 148 mm, yani 298 x 420 punto.
+    const box = pdf.match(/\/MediaBox\s*\[([^\]]+)\]/)?.[1];
+    expect(box).toMatch(/^0 0 29[78]\S* (419|420)/);
+  }
+  await paper.close();
+
+  await button(manager, "Kargoya verildi").click();
+  await expect(button(manager, "Takip bilgisini düzelt")).toBeVisible();
+  await expect(button(manager, "Siparişi iptal et")).toHaveCount(0);
+
+  // Müşteri: durum, takip bağlantısı ve e-posta.
+  await o.page.reload();
+  await fact(o.page, "Kargoya verildi");
+  const link = o.page.getByRole("link", { name: /Kargonuzu izleyin/ });
+  await expect(link).toHaveAttribute(
+    "href",
+    `https://kargo.test/takip?no=${T}`,
+  );
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  await accessible(o.page);
+  await narrow(o.page);
+  await expect
+    .poll(async () => {
+      const found = await o.page.request.get(`${MAIL}/search`, {
+        params: { query: `to:"${o.email}"` },
+      });
+      const texts = await Promise.all(
+        (await found.json()).messages.map(async (m: { ID: string }) => {
+          const got = await o.page.request.get(`${MAIL}/message/${m.ID}`);
+          return (await got.json()).Text as string;
+        }),
+      );
+      return texts.filter((t) => t.includes(`Takip numarası: ${T}`)).length;
+    })
+    .toBe(1);
+
+  // Yanlış numara kargodayken düzelir; eskisi geçmişte kalır.
+  await manager.getByLabel("Takip numarası").fill(`${code}X`);
+  await button(manager, "Takip bilgisini düzelt").click();
+  await fact(manager, `${T}X`);
+  await manager.getByText("Gönderi geçmişi").click();
+  await expect(manager.getByText(`Takip numarası: ${T} → ${T}X`)).toBeVisible();
+  await o.page.reload();
+  await fact(o.page, `${T}X`);
+
+  // Teslim tahsilat sayılmaz; parayı yalnızca yetkili yazar.
+  await button(manager, "Teslim edildi").click();
+  await fact(manager, "Para bekleniyor");
+  expect(status(o.no)).toBe("delivered/cod_due");
+  await expect(button(manager, "Kaydı ekle")).toHaveCount(0);
+  await o.page.reload();
+  await expect(o.page.getByText("Teslim edildi")).toHaveCount(2);
+  await expect(o.page.getByText("Kapıda ödenecek")).toHaveCount(0);
+
+  await admin.goto(`/yonetim/siparisler?durum=cod&ara=${o.no}`);
+  await expect(admin.getByRole("link", { name: o.no })).toBeVisible();
+  await openInPanel(admin, o.no);
+  await admin.getByLabel("Tutar (TL)", { exact: true }).fill("300,00");
+  await admin.getByLabel("Banka işlem numarası").fill("DK-1");
+  await button(admin, "Kaydı ekle").click();
+  await fact(admin, "Eksik geldi");
+  await expect(admin.getByText("₺15,00 eksik")).toBeVisible();
+  await accessible(admin);
+  await narrow(admin);
+  expect(status(o.no)).toBe("delivered/cod_due");
+  await admin.getByLabel("Tutar (TL)", { exact: true }).fill("15,00");
+  await admin.getByLabel("Banka işlem numarası").fill("DK-2");
+  await button(admin, "Kaydı ekle").click();
+  await fact(admin, "Tamamlandı");
+  expect(status(o.no)).toBe("delivered/cod_collected");
+  await admin.goto(`/yonetim/siparisler?durum=cod&ara=${o.no}`);
+  await expect(admin.getByText("Sipariş bulunamadı.")).toBeVisible();
+  expect(adminEmail).not.toBe(email);
+});
+
+test("kargo firmaları: ekleme, kapatma ve rol sınırları", async ({
+  browser,
+}) => {
+  test.slow();
+  const { page: admin, email } = await staff(browser, "admin");
+  const name = `Panel ${carrier}`;
+  await admin.goto("/yonetim/kargo");
+  await accessible(admin);
+  await narrow(admin);
+  const form = admin.getByRole("region", { name: "Yeni firma" });
+  await form.getByLabel("Firma adı").fill(name);
+  await form.getByLabel("Takip adresi").fill("http://kargo.test/{no}");
+  await form.getByRole("button", { name: "Firma ekle" }).click();
+  await expect(alert(admin)).toContainText("https://");
+  await form.getByLabel("Takip adresi").fill("https://kargo.test/{no}");
+  await form.getByRole("button", { name: "Firma ekle" }).click();
+  const heading = admin.getByRole("heading", { name });
+  await expect(heading).toBeVisible();
+  const row = admin.getByRole("listitem").filter({ has: heading });
+  await row.getByLabel("Yeni gönderilerde kullanılır").uncheck();
+  await row.getByRole("button", { name: "Kaydet" }).click();
+  await expect(heading).toContainText("kullanılmıyor");
+  await expectInHistory(admin, email, "Kargo firması değişti");
+
+  // Müşteri hizmetleri görür, değiştiremez; stok sorumlusu göremez.
+  const { page: cs } = await staff(browser, "customer_service");
+  await cs.goto("/yonetim/kargo");
+  await expect(cs.getByRole("heading", { name })).toBeVisible();
+  await expect(
+    cs.getByRole("button", { name: /Kaydet|Firma ekle/ }),
+  ).toHaveCount(0);
+  const { page: sm } = await staff(browser, "stock_manager");
+  await sm.goto("/yonetim/kargo");
+  await expect(
+    sm.getByRole("heading", { name: "Kargo firmaları" }),
+  ).toHaveCount(0);
+  await expect(sm.getByText(name)).toHaveCount(0);
+});
+
+test("50 eşzamanlı gönderi isteği tek gönderi üretir; para bir kez sayılır", async ({
+  browser,
+}, info) => {
+  test.skip(info.project.name !== "masaustu");
+  test.slow();
+  const { email } = await staff(browser, "admin");
+  const as = session(email);
+  const { no, id } = await preparing(browser, as);
+
+  const created = await Promise.all(
+    Array.from({ length: 50 }, () =>
+      as(`select public.create_shipment('${id}')`),
+    ),
+  );
+  expect(created.filter((r) => r.startsWith("HATA"))).toEqual([]);
+  const ids = new Set(created.map((r) => r.trim().split("\n").at(-1)));
+  expect(ids.size).toBe(1);
+  expect(
+    sql(`select count(*) from public.shipments where order_id = '${id}'`),
+  ).toBe("1");
+
+  const [shipment] = [...ids];
+  await as(
+    `select public.update_shipment('${shipment}', (select id from public.carriers where name = '${carrier}'), 'ES${no}')`,
+  );
+  for (const to of ["handed_over", "delivered"]) {
+    const moves = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        as(`select public.advance_shipment('${shipment}', '${to}')`),
+      ),
+    );
+    expect(moves.filter((r) => r.startsWith("HATA"))).toEqual([]);
+  }
+  expect(
+    sql(`select string_agg(to_value, ',' order by seq) from public.shipment_events
+         where shipment_id = '${shipment}' and field = 'status'`),
+  ).toBe("created,handed_over,delivered");
+  expect(
+    sql(`select count(*) from public.outbox_jobs
+         where payload = jsonb_build_object('order_id', '${id}', 'status', 'shipped')`),
+  ).toBe("1");
+
+  // Aynı tahsilat isteği 50 kez gelir.
+  const key = randomUUID();
+  const settlement = sql(
+    `select id from public.cod_settlements where shipment_id = '${shipment}'`,
+  );
+  const paid = await Promise.all(
+    Array.from({ length: 50 }, () =>
+      as(`select public.record_cod('${settlement}', 31500, 'E', '${key}')`),
+    ),
+  );
+  expect(paid.filter((r) => r.startsWith("HATA"))).toEqual([]);
+  expect(
+    sql(
+      `select sum(amount) from public.cod_receipts where settlement_id = '${settlement}'`,
+    ),
+  ).toBe("31500");
+  expect(status(no)).toBe("delivered/cod_collected");
+});
+
+test("kargoya verme ile iptal yarışı: yalnızca biri geçerli olur", async ({
+  browser,
+}, info) => {
+  test.skip(info.project.name !== "masaustu");
+  test.slow();
+  const { email } = await staff(browser, "admin");
+  const as = session(email);
+  const outcomes = new Set<string>();
+  for (let n = 0; n < 4; n++) {
+    const { no, id } = await preparing(browser, as);
+    const out = await as(`select public.create_shipment('${id}')`);
+    const shipment = out.trim().split("\n").at(-1);
+    await as(
+      `select public.update_shipment('${shipment}', (select id from public.carriers where name = '${carrier}'), 'YR${no}')`,
+    );
+    const [shipped, cancelled] = await Promise.all([
+      as(`select public.advance_shipment('${shipment}', 'handed_over')`),
+      as(`select public.cancel_order('${id}', 'deneme')`),
+    ]);
+    expect(
+      [shipped, cancelled].filter((r) => r.startsWith("HATA")),
+    ).toHaveLength(1);
+    const end = sql(
+      `select o.order_status || ':' || s.status || ':' || o.shipment_status
+       from public.orders o join public.shipments s on s.order_id = o.id where o.id = '${id}'`,
+    );
+    expect([
+      "shipped:handed_over:handed_over",
+      "cancelled:cancelled:none",
+    ]).toContain(end);
+    outcomes.add(end);
+    // İptal olduysa stok bir kez geri gelir, yola çıktıysa hiç gelmez.
+    expect(
+      sql(
+        `select string_agg(reason || delta, ',' order by seq) from public.stock_movements where order_id = '${id}'`,
+      ),
+    ).toBe(end.startsWith("cancelled") ? "sale-1,cancel1" : "sale-1");
+  }
+  info.annotations.push({
+    type: "yarış",
+    description: [...outcomes].join(", "),
+  });
 });

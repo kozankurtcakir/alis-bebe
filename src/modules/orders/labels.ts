@@ -74,13 +74,12 @@ export function historyText(h: {
   return `${isPayment ? "Ödeme" : "Sipariş"}: ${change.join(" → ")}`;
 }
 
-/** Personelin sıradaki adımı. Kuralı veritabanı uygular; burası yalnızca düğmeyi seçer. */
+/** Personelin sıradaki adımı; kargolu sipariş gönderisiyle ilerler. Kuralı veritabanı uygular; burası yalnızca düğmeyi seçer. */
 export function nextSteps(status: OrderStatus, delivery: string) {
   const steps: Partial<Record<OrderStatus, OrderStatus[]>> = {
     approved: ["preparing"],
-    preparing: [delivery === "pickup" ? "ready_for_pickup" : "shipped"],
+    preparing: delivery === "pickup" ? ["ready_for_pickup"] : [],
     ready_for_pickup: ["delivered"],
-    shipped: ["delivered", "returned_to_sender"],
   };
   return steps[status] ?? [];
 }

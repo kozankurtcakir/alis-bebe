@@ -28,3 +28,13 @@ body {
   outline: 3px solid var(--color-nar);
   outline-offset: 3px;
 }
+
+/* Kargo etiketi A6 kâğıda tek sayfa basılır. CSS'te "A6" adı yoktur. */
+@page etiket {
+  size: 105mm 148mm;
+  margin: 5mm;
+}
+
+.etiket {
+  page: etiket;
+}

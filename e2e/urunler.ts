@@ -120,6 +120,17 @@ export async function removeCategory(category: string) {
           join public.payments y on y.id = a.payment_id where y.order_id in (select order_id from sil_siparis));`,
       )
       .join(" ")}
+    create temp table sil_gonderi on commit drop as
+      select id, carrier_id from public.shipments where order_id in (select order_id from sil_siparis);
+    delete from public.cod_receipts where settlement_id in (
+      select id from public.cod_settlements where shipment_id in (select id from sil_gonderi));
+    ${["cod_settlements", "shipment_events", "shipment_items"]
+      .map(
+        (t) =>
+          `delete from public.${t} where shipment_id in (select id from sil_gonderi);`,
+      )
+      .join(" ")}
+    delete from public.shipments where id in (select id from sil_gonderi);
     ${[
       "payments",
       "order_legal_acceptances",
@@ -135,6 +146,8 @@ export async function removeCategory(category: string) {
       .join(" ")}
     delete from public.orders where id in (select order_id from sil_siparis);
     set local session_replication_role = origin;
+    -- Test firmasının adında test etiketi vardır.
+    delete from public.carriers where name like '%' || substr('${category}', 6) and '${category}' like 'test-q%';
     delete from public.cart_items where variant_id in ${variants};
     delete from public.favorites where product_id in ${products};
     update public.products set status = 'draft' where id in ${products};

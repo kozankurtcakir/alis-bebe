@@ -48,6 +48,7 @@ const entityLabels: Record<string, string> = {
   product_variants: "Varyant",
   variant_costs: "Maliyet",
   product_images: "Görsel",
+  carriers: "Kargo firması",
 };
 
 const verbLabels: Record<string, string> = {
@@ -82,6 +83,7 @@ const fieldLabels: Record<string, string> = {
   code: "Kod",
   product_type: "Tür",
   is_primary: "Ana kategori",
+  url_template: "Takip adresi",
 };
 
 const show = (field: string, value: unknown) => {

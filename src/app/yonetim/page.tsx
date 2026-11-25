@@ -38,6 +38,11 @@ export default async function AdminPage() {
         value: orders.overdue,
         href: `${list}ready_for_pickup`,
       },
+      {
+        label: "Kargodan para beklenen",
+        value: orders.cod,
+        href: `${list}cod`,
+      },
     );
   }
   if (stock) {

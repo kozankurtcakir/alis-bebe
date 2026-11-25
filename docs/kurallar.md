@@ -72,7 +72,9 @@ Tek istisna: süresi dolduğu için iptal olan (`cancel_code = expired`) sipari�
 
 **Ödeme:** `pending`, `failed` (kart reddedildi; yeniden denenebilir), `review`, `paid`, `cancelled`, `cod_due`, `cod_collected`, `refund_pending`, `partially_refunded`, `refunded`
 
-**Kargo:** `none`, `created`, `handed_over`, `in_transit`, `delivered`, `failed`, `returned`
+**Kargo (siparişte):** `none`, `created`, `handed_over`, `in_transit`, `delivered`, `failed`, `returned`. `in_transit` ve `failed` firma bağlantısıyla kullanılacak.
+
+**Gönderi:** `created` → `handed_over` veya `cancelled`; `handed_over` → `delivered` veya `returned`. Son üçü değişmez. Kargolu sipariş `shipped`, `delivered` ve `returned_to_sender` durumlarına yalnızca gönderisiyle birlikte geçer.
 
 ## 3. Stok
 
@@ -119,7 +121,14 @@ Para iadesi önce `pending` yazılır, sonra sağlayıcıya gönderilir. Cevap g
 
 ## 6. Kargo
 
-`ShippingProvider` işlemleri: oluştur, etiket al, iptal et, durum sorgula, iade kodu üret, bildirim doğrula. İlk uygulama "Manuel". Arıza halinde artan aralıkla denenir, sonra manuel girişe düşülür.
+- İlk sürümde yalnızca "Manuel" sağlayıcı var: gönderi firmada elle açılır, takip numarası panele yazılır. Firma seçilince `ShippingProvider` arayüzüne etiket, iptal, durum sorgusu, iade kodu ve bildirim doğrulama eklenir; arıza halinde artan aralıkla denenir, sonra manuel girişe düşülür.
+- Sipariş başına iptal edilmemiş tek gönderi olur; yinelenen istek aynı gönderiyi döndürür. Bölünmüş gönderi ilk sürümde yok.
+- "Kargoya verildi" için firma ve takip numarası zorunludur. Numara kargodayken düzeltilebilir; eski ve yeni değer geçmişte kalır. Aynı firmada aynı numara iptal edilmemiş iki gönderide kullanılamaz.
+- Sipariş iptal edilirse yola çıkmamış gönderi de iptal olur; yola çıkan sipariş iptal edilemez.
+- Geri dönen ürün kendiliğinden stoğa girmez; kontrolü Aşama 11'dedir. Kapıda ödemede dönen siparişten para beklenmez; önceden ödenmişse para kaydı durur.
+- Kapıda ödemede teslimle birlikte firmadan beklenen tutar yazılır. Gelen parayı yalnızca `cod.reconcile` izni olan yazar; kayıt silinmez, eksi tutarla düzeltilir. Eksik veya fazla para panelde uyarıda kalır.
+- Firmaları `settings.basic` izni olan ekler ve kapatır; firma silinmez. Takip adresi `https://` ile başlar ve `{no}` içerir.
+- Müşteri, paket yola çıkınca firma, takip numarası ve bağlantıyı görür; "Kargoya verildi" e-postasında da yazar.
 
 ## 7. Toplu inceleme ekranı
 

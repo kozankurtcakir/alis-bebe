@@ -274,7 +274,8 @@ describe("etiketler", () => {
 
   it("mağaza ve kargo adımlarını karıştırmaz", () => {
     expect(nextSteps("preparing", "pickup")).toEqual(["ready_for_pickup"]);
-    expect(nextSteps("preparing", "shipping")).toEqual(["shipped"]);
+    expect(nextSteps("preparing", "shipping")).toEqual([]);
+    expect(nextSteps("shipped", "shipping")).toEqual([]);
     expect(
       (["awaiting_approval", "cancelled", "delivered"] as const).flatMap((s) =>
         nextSteps(s, "shipping"),
@@ -313,6 +314,7 @@ describe("composeMail", () => {
     payment_method: "transfer",
     delivery_method: "shipping",
     token: "f".repeat(64),
+    shipment: null,
   });
 
   it("misafire gizli bağlantı verir", () => {
@@ -335,5 +337,26 @@ describe("composeMail", () => {
     expect(
       composeMail({ ...status, status: "shipped" }, "http://x")?.text,
     ).toContain("kargoya verildi");
+  });
+
+  it("kargoya verilince takip bilgisini yazar", () => {
+    const shipped = {
+      ...job,
+      kind: "order_status" as const,
+      status: "shipped",
+      shipment: {
+        carrier: "Deneme",
+        tracking_no: "AB1",
+        url: "https://k.test/AB1",
+      },
+    };
+    expect(composeMail(shipped, "http://x")?.text).toContain(
+      "Kargo firması: Deneme\nTakip numarası: AB1\nKargonuzu izleyin: https://k.test/AB1",
+    );
+    const noLink = { ...shipped, shipment: { ...shipped.shipment, url: null } };
+    expect(composeMail(noLink, "http://x")?.text).not.toContain("izleyin");
+    expect(
+      composeMail({ ...shipped, status: "delivered" }, "http://x")?.text,
+    ).not.toContain("Takip numarası");
   });
 });

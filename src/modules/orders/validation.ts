@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { parsePrice, priceInput } from "@/lib/money";
-import { addressSchema, profileSchema } from "@/modules/account/validation";
+import {
+  personSchema,
+  placeSchema,
+  profileSchema,
+} from "@/modules/account/validation";
 
 const INVALID = "Geçersiz istek.";
 
@@ -9,18 +13,10 @@ const on = z
   .optional()
   .transform((v) => v === "on");
 
-const place = addressSchema.pick({
-  city: true,
-  district: true,
-  line: true,
-  postal_code: true,
-});
-const person = addressSchema.pick({ recipient: true, phone: true });
-
 const base = z.object({
   key: z.uuid(INVALID),
   name: profileSchema.shape.full_name,
-  phone: addressSchema.shape.phone,
+  phone: personSchema.shape.phone,
   delivery: z.enum(["shipping", "pickup"], "Teslimat yöntemini seçin."),
   payment: z.enum(
     ["card", "transfer", "cod", "store"],
@@ -87,15 +83,17 @@ export function parseCheckout(form: FormData, isGuest: boolean) {
   if (b) {
     const shipping = b.delivery === "shipping";
     const d = prefixed(form, "d_");
-    const address = shipping ? read(place, d, "Teslimat adresi: ") : undefined;
+    const address = shipping
+      ? read(placeSchema, d, "Teslimat adresi: ")
+      : undefined;
     const receiver =
       shipping && b.other
-        ? read(person, d, "Teslim alacak kişi: ")
+        ? read(personSchema, d, "Teslim alacak kişi: ")
         : { recipient: b.name, phone: b.phone };
     const invoice =
       shipping && b.same
         ? address
-        : read(place, prefixed(form, "f_"), "Fatura adresi: ");
+        : read(placeSchema, prefixed(form, "f_"), "Fatura adresi: ");
     const firm = b.corporate ? read(company, all) : undefined;
 
     if (problems.length === 0) {

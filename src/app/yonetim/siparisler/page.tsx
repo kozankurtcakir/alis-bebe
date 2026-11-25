@@ -22,7 +22,7 @@ export const metadata: Metadata = { title: "Siparişler" };
 const statuses = Object.keys(orderStatuses) as OrderStatus[];
 const filterSchema = z.object({
   ara: z.string().max(100).catch(""),
-  durum: z.enum(["", "refund", ...statuses]).catch(""),
+  durum: z.enum(["", "refund", "cod", ...statuses]).catch(""),
   sayfa: z.coerce.number().int().min(1).max(10_000).catch(1),
 });
 
@@ -114,6 +114,7 @@ export default async function OrdersPage({
               label: orderStatuses[value] as string,
             })),
             { value: "refund", label: "Para iadesi bekleyen" },
+            { value: "cod", label: "Kargodan para beklenen" },
           ]}
           defaultValue={durum}
         />

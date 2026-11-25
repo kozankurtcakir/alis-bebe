@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { cities } from "./cities";
+import { districts } from "./districts";
 import {
   addressSchema,
   consentSchema,
@@ -47,6 +48,19 @@ test("il listesi veritabanındakiyle aynı", () => {
   expect(new Set(cities).size).toBe(81);
 });
 
+test("ilçe listesi veritabanındakiyle aynı", () => {
+  const sql = readFileSync(
+    "supabase/migrations/20261125150000_kargo.sql",
+    "utf8",
+  );
+  const json = /coalesce\('(\{[\s\S]+?\})'::jsonb/.exec(sql)![1];
+  expect(JSON.parse(json)).toEqual(districts);
+  expect(Object.keys(districts)).toEqual([...cities]);
+  expect(Object.values(districts).flat()).toHaveLength(973);
+  for (const list of Object.values(districts))
+    expect(new Set(list).size).toBe(list.length);
+});
+
 const address = {
   id: "",
   title: " Ev ",
@@ -85,6 +99,10 @@ describe("geçersiz adres", () => {
     [{ city: "Atlantis" }],
     [{ city: "" }],
     [{ district: "" }],
+    [{ district: "Nilüfer" }],
+    [{ district: "odunpazarı" }],
+    [{ district: undefined }],
+    [{ city: "Bursa" }],
     [{ line: "kısa" }],
     [{ line: "a".repeat(301) }],
     [{ line: `kısa${"\n".repeat(20)}` }],

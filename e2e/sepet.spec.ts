@@ -468,7 +468,7 @@ test("hesap: bilgiler, adresler ve ileti izinleri", async ({ page }) => {
     await form.getByLabel("Alıcının adı soyadı").fill("Deneme Kişi");
     await form.getByLabel("Cep telefonu").fill("0555 000 11 22");
     await form.getByLabel("İl", { exact: true }).selectOption("Eskişehir");
-    await form.getByLabel("İlçe").fill("Odunpazarı");
+    await form.getByLabel("İlçe").selectOption("Odunpazarı");
     await form.getByLabel("Açık adres").fill("Deneme Mah. <b>Örnek</b> No: 1");
   };
   await fill("Ev");

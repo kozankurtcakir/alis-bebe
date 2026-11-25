@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { CheckField, Field, SelectField, TextArea } from "@/components/fields";
+import { CheckField, Field } from "@/components/fields";
 import { PanelForm } from "@/components/panel-form";
 import { deleteAddress, saveAddress } from "@/modules/account/actions";
-import { cities } from "@/modules/account/cities";
+import { PlaceFields } from "@/modules/account/place-fields";
 import { listAddresses, type Address } from "@/modules/account/queries";
 import { formatPhone } from "@/modules/account/validation";
 import { requireUser } from "@/modules/auth/access";
@@ -106,42 +106,7 @@ function AddressForm({ address: a }: { address?: Address }) {
         required
         maxLength={30}
       />
-      <SelectField
-        label="İl"
-        name="city"
-        defaultValue={a?.city ?? ""}
-        autoComplete="address-level1"
-        empty="Seçin"
-        options={cities.map((c) => ({ value: c, label: c }))}
-        required
-      />
-      <Field
-        label="İlçe"
-        name="district"
-        defaultValue={a?.district}
-        autoComplete="address-level2"
-        required
-        minLength={2}
-        maxLength={60}
-      />
-      <TextArea
-        label="Açık adres"
-        name="line"
-        defaultValue={a?.line}
-        autoComplete="street-address"
-        hint="Mahalle, sokak, kapı ve daire numarası"
-        required
-        minLength={10}
-        maxLength={300}
-      />
-      <Field
-        label="Posta kodu (isteğe bağlı)"
-        name="postal_code"
-        defaultValue={a?.postal_code ?? ""}
-        autoComplete="postal-code"
-        inputMode="numeric"
-        maxLength={5}
-      />
+      <PlaceFields address={a} />
       {!a?.is_default && (
         <CheckField label="Varsayılan adresim olsun" name="is_default" />
       )}

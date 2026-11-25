@@ -107,7 +107,7 @@ select set_eq(
     'set_favorite', 'is_favorite', 'list_favorites', 'save_address', 'delete_address', 'set_consent',
     'checkout_options', 'place_order', 'get_order', 'cancel_my_order', 'begin_card_payment', 'my_orders', 'cancel_order',
     'match_transfer', 'confirm_transfer', 'verify_order_phone', 'add_order_note', 'approve_order',
-    'advance_order', 'collect_store_payment', 'list_orders', 'set_settings', 'order_detail', 'order_summary',
+    'advance_order', 'collect_store_payment', 'save_carrier', 'create_shipment', 'update_shipment', 'advance_shipment', 'record_cod', 'list_orders', 'set_settings', 'order_detail', 'order_summary',
     'is_active_session', 'has_permission', 'fold_tr'],
   'giriş yapan kullanıcı yalnızca listedeki fonksiyonları çalıştırabilir');
 

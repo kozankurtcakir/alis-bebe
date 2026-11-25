@@ -457,7 +457,7 @@ select is(tests.addr('b', 'x', p_postal => x), 'HATA 23514', 'geçersiz posta ko
 select is(tests.addr('b', 'x', p_line => x), 'HATA 23514', 'geçersiz adres: ' || left(x, 12)) from unnest(array['kısa', repeat(' ', 20), repeat('a', 301)]) x;
 select is(tests.addr('b', x), 'HATA 23514', 'geçersiz başlık') from unnest(array['', '  ', repeat('a', 41)]) x;
 select is(tests.addr('b', 'x', p_recipient => x), 'HATA 23514', 'geçersiz alıcı') from unnest(array['a', repeat('a', 101)]) x;
-select is(tests.addr('b', 'x', p_district => x), 'HATA 23514', 'geçersiz ilçe') from unnest(array['a', repeat('a', 61)]) x;
+select is(tests.addr('b', 'x', p_district => x), 'HATA 23514', 'geçersiz ilçe') from unnest(array['a', 'Nilüfer', 'odunpazarı', repeat('a', 61)]) x;
 select is(tests.addr('b', null), 'HATA 23502', 'boş başlık');
 select is(tests.addr('b', 'Kodsuz', p_postal => null) is not null, true, 'posta kodu isteğe bağlı');
 select is(tests.addrs('b'), 'Benim* Kodsuz', 'reddedilenler yazılmadı');

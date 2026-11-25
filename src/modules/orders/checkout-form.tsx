@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
-import { CheckField, Field, SelectField, TextArea } from "@/components/fields";
+import { CheckField, Field, SelectField } from "@/components/fields";
 import { PanelForm } from "@/components/panel-form";
 import { formatPrice } from "@/lib/money";
-import { cities } from "@/modules/account/cities";
+import { PlaceFields } from "@/modules/account/place-fields";
 import type { Address } from "@/modules/account/queries";
 import { formatPhone } from "@/modules/account/validation";
 import type { Cart } from "@/modules/cart/queries";
@@ -366,55 +366,6 @@ function Radios<T extends string>({
           </p>
         </div>
       ))}
-    </div>
-  );
-}
-
-function PlaceFields({
-  prefix,
-  address: a,
-}: {
-  prefix: string;
-  address?: Address;
-}) {
-  return (
-    <div className="space-y-4">
-      <SelectField
-        label="İl"
-        name={`${prefix}city`}
-        defaultValue={a?.city ?? ""}
-        autoComplete="address-level1"
-        empty="Seçin"
-        options={cities.map((c) => ({ value: c, label: c }))}
-        required
-      />
-      <Field
-        label="İlçe"
-        name={`${prefix}district`}
-        defaultValue={a?.district}
-        autoComplete="address-level2"
-        required
-        minLength={2}
-        maxLength={60}
-      />
-      <TextArea
-        label="Açık adres"
-        name={`${prefix}line`}
-        defaultValue={a?.line}
-        autoComplete="street-address"
-        hint="Mahalle, sokak, kapı ve daire numarası"
-        required
-        minLength={10}
-        maxLength={300}
-      />
-      <Field
-        label="Posta kodu (isteğe bağlı)"
-        name={`${prefix}postal_code`}
-        defaultValue={a?.postal_code ?? ""}
-        autoComplete="postal-code"
-        inputMode="numeric"
-        maxLength={5}
-      />
     </div>
   );
 }

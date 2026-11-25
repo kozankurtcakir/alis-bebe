@@ -12,6 +12,13 @@ export const jobSchema = z.object({
   payment_method: z.string(),
   delivery_method: z.string(),
   token: z.string().nullable(),
+  shipment: z
+    .object({
+      carrier: z.string(),
+      tracking_no: z.string(),
+      url: z.string().nullable(),
+    })
+    .nullable(),
 });
 
 const statusTexts: Record<string, string> = {
@@ -32,6 +39,17 @@ const placedTexts: Record<string, string> = {
     "Siparişinizi aldık. Hazır olunca haber vereceğiz; ödemeyi mağazada yaparsınız.",
 };
 
+const trackingText = (s: {
+  carrier: string;
+  tracking_no: string;
+  url: string | null;
+}) =>
+  [
+    `Kargo firması: ${s.carrier}`,
+    `Takip numarası: ${s.tracking_no}`,
+    ...(s.url ? [`Kargonuzu izleyin: ${s.url}`] : []),
+  ].join("\n");
+
 /** İleti metni. Haber verilmeyen durumda null. */
 export function composeMail(job: z.infer<typeof jobSchema>, siteUrl: string) {
   const text =
@@ -50,6 +68,9 @@ export function composeMail(job: z.infer<typeof jobSchema>, siteUrl: string) {
     text: [
       `Merhaba ${job.name},`,
       text,
+      ...(job.status === "shipped" && job.shipment
+        ? [trackingText(job.shipment)]
+        : []),
       `Sipariş numarası: ${job.order_no}\nToplam: ${formatPrice(job.total)}`,
       `Siparişinizi görün: ${link}`,
       job.token

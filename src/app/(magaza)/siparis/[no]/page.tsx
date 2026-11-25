@@ -14,6 +14,7 @@ import {
 } from "@/modules/orders/labels";
 import { Fact, ItemList, TestNotice, Totals } from "@/modules/orders/parts";
 import { getCheckoutOptions, getOrder } from "@/modules/orders/queries";
+import { shipmentStatuses } from "@/modules/shipping/labels";
 
 export const instant = false;
 export const metadata: Metadata = {
@@ -62,7 +63,12 @@ export default async function OrderPage({
         <Fact label="Durum" value={orderStatuses[order.order_status]} />
         <Fact
           label="Ödeme"
-          value={`${paymentMethods[order.payment_method]} · ${paymentStatuses[order.payment_status]}`}
+          value={
+            // Firmanın parayı bize yatırması müşteriyi ilgilendirmez.
+            order.payment_method === "cod" && order.order_status === "delivered"
+              ? paymentMethods.cod
+              : `${paymentMethods[order.payment_method]} · ${paymentStatuses[order.payment_status]}`
+          }
         />
       </dl>
 
@@ -149,6 +155,29 @@ export default async function OrderPage({
             {order.address.line}, {order.address.district} /{" "}
             {order.address.city} {order.address.postal_code}
           </p>
+        )}
+        {order.shipment && (
+          <dl className="grid gap-4 pt-2 sm:grid-cols-2">
+            <Fact
+              label="Kargo durumu"
+              value={shipmentStatuses[order.shipment.status]}
+            />
+            <Fact label="Kargo firması" value={order.shipment.carrier ?? ""} />
+            <Fact
+              label="Takip numarası"
+              value={order.shipment.tracking_no ?? ""}
+            />
+          </dl>
+        )}
+        {order.shipment?.url && (
+          <a
+            href={order.shipment.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center underline underline-offset-4"
+          >
+            Kargonuzu izleyin (yeni sekmede açılır)
+          </a>
         )}
         {order.pickup && <p className="break-words">{order.pickup.address}</p>}
         {order.order_status === "ready_for_pickup" && order.pickup?.until && (

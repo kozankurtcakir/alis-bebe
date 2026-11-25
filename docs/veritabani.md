@@ -100,15 +100,19 @@ Sipariş tablolarına kimse doğrudan yazamaz. Müşteri `checkout_options`, `pl
 | `payment_events` | `provider`, `event_id`, `attempt_id`, `status`, `amount`, `currency`, `result` | Yalnızca ekleme; `(provider, event_id)` benzersiz. Ham bildirim bilerek saklanmaz. Kimse doğrudan okuyamaz |
 | `bank_transfers` | `payment_id`, `amount`, `reference`, `matched_by`, `matched_at`, `confirmed_by?`, `confirmed_at?`, `idempotency_key` | `reference` benzersiz: aynı banka işlemi iki siparişe yazılamaz. İki ayrı kişi şartı ayarla açılır (kapalı) |
 | `refunds` | `payment_id`, `return_request_id?`, `amount`, `status`, `requested_by`, `approved_by?`, `provider_ref?` | Toplam ≤ ödenen |
-| `cod_settlements` | `shipment_id`, `expected`, `received?`, `received_at?`, `status` | Aşama 10 |
+| `cod_settlements` | `shipment_id`, `expected`, `status` (`pending`, `short`, `settled`, `over`) | Kapıda ödemede teslimle oluşur; gönderi başına bir |
+| `cod_receipts` | `settlement_id`, `amount`, `reference`, `recorded_by`, `idempotency_key` | Yalnızca ekleme; düzeltme eksi tutarla, toplam eksiye düşemez |
 
 ## Kargo (Aşama 10)
 
 | Tablo | Alanlar | Kural |
 |---|---|---|
-| `shipments` | `order_id`, `provider`, `our_ref`, `provider_ref?`, `tracking_no?`, `label_path?`, `status` | `our_ref` benzersiz: çift gönderi engeli |
-| `shipment_items` | `shipment_id`, `order_item_id`, `quantity` | Toplam ≤ sipariş adedi |
-| `shipment_events` | `shipment_id`, `status`, `raw_code`, `raw jsonb`, `occurred_at` | Yalnızca ekleme |
+| `carriers` | `name`, `url_template?`, `is_active` | Ad benzersiz; takip adresi yalnızca `https`, `{no}` alan adında olamaz. Değişiklik işlem geçmişine yazılır |
+| `shipments` | `order_id`, `provider`, `our_ref`, `provider_ref?`, `carrier_id?`, `tracking_no?`, `status`, `handed_over_at?`, `closed_at?` | `our_ref` benzersiz; sipariş başına iptal edilmemiş tek gönderi; aynı firmada takip numarası tek |
+| `shipment_items` | `shipment_id`, `order_item_id`, `quantity` | İlk sürümde siparişin tamamı |
+| `shipment_events` | `shipment_id`, `field`, `from_value?`, `to_value?`, `actor_id?` | Yalnızca ekleme |
+
+Bu tablolara kimse doğrudan yazamaz; `carriers` dışında kimse doğrudan okuyamaz. Yazım: `save_carrier`, `create_shipment`, `update_shipment`, `advance_shipment`, `record_cod`. Okuma: `order_detail` (panel), `get_order` (müşteri). İlçe, `private.valid_district` ile denetlenir.
 
 ## İptal ve iade (Aşama 11)
 

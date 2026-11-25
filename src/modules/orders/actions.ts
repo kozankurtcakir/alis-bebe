@@ -1,18 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { z } from "zod";
 import type { PanelState } from "@/components/panel-form";
-import { dbErrorMessage } from "@/lib/db-error";
 import { cookieOptions } from "@/lib/env";
-import { createClient } from "@/lib/supabase";
 import { getAccess, requirePermission } from "@/modules/auth/access";
 import { guestToken } from "@/modules/cart/guest";
-import { checkPayments, startPayment } from "@/modules/payments/service";
-import { sendPendingEmails } from "./mail";
+import { startPayment } from "@/modules/payments/service";
+import { call } from "./call";
 import { ORDER_COOKIE, ORDER_NO, orderToken } from "./queries";
 import { orderStatuses } from "./labels";
 import { parseCheckout, settingsSchema, transferSchema } from "./validation";
@@ -24,20 +20,6 @@ const INVALID: PanelState = { error: "Geçersiz istek." };
 const failed = (error: z.ZodError): PanelState => ({
   error: [...new Set(error.issues.map((i) => i.message))].join(" "),
 });
-
-/** Yetkiye, tutara ve durum geçişine veritabanı karar verir. */
-async function call(fn: string, args: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc(fn, args);
-  // Hatada da sayfa yenilenir: fiyat, stok veya durum değişmiş olabilir.
-  revalidatePath("/", "layout");
-  if (error) return { data: null, error: dbErrorMessage(error) };
-  after(async () => {
-    await checkPayments();
-    await sendPendingEmails();
-  });
-  return { data: data as unknown, error: null };
-}
 
 // --- Müşteri ----------------------------------------------------------------
 
@@ -162,13 +144,7 @@ export async function collectPayment(state: PanelState, form: FormData) {
   return doCollect(state, form);
 }
 
-const stepSchema = z.enum([
-  "preparing",
-  "ready_for_pickup",
-  "shipped",
-  "delivered",
-  "returned_to_sender",
-]);
+const stepSchema = z.enum(["preparing", "ready_for_pickup", "delivered"]);
 
 export const advanceOrder: Action = async (_, form) => {
   const id = byId.safeParse(Object.fromEntries(form));

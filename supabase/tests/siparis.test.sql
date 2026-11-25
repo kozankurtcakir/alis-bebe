@@ -187,10 +187,12 @@ update public.settings set value = '[]' where key = 'holidays';
 create table tests.tables (t text);
 insert into tests.tables select unnest(array['settings', 'orders', 'order_items', 'order_addresses',
   'order_status_history', 'order_access_tokens', 'stock_reservations', 'payments', 'bank_transfers',
-  'legal_documents', 'order_legal_acceptances', 'outbox_jobs', 'payment_attempts', 'payment_events']);
+  'legal_documents', 'order_legal_acceptances', 'outbox_jobs', 'payment_attempts', 'payment_events',
+  'carriers', 'shipments', 'shipment_items', 'shipment_events', 'cod_settlements', 'cod_receipts']);
 select is(left(tests.run_as(null, 'select count(*) from public.' || t), 10), 'HATA 42501', 'ziyaretçi okuyamaz: ' || t) from tests.tables;
 select is(left(tests.run_as('sa', 'select count(*) from public.' || t), 10), 'HATA 42501', 'kimse okuyamaz: ' || t)
-from unnest(array['order_access_tokens', 'outbox_jobs', 'legal_documents']) t;
+from unnest(array['order_access_tokens', 'outbox_jobs', 'legal_documents', 'shipments', 'shipment_items', 'shipment_events',
+  'cod_settlements', 'cod_receipts']) t;
 select is_empty($$ select t, r, x from tests.tables, unnest(array['anon', 'authenticated', 'service_role']) r,
   unnest(array['insert', 'update', 'delete', 'truncate']) x
   where has_table_privilege(r, 'public.' || t, x)
@@ -433,9 +435,23 @@ select is(tests.call('om', 'approve_order', 'c2', ', true'), '', 'ayar kapalıyk
 select is(tests.set('{"phone_check": true}'), '', 'doğrulama açılır');
 select is(tests.call('om', 'advance_order', 'c1', $$, 'preparing'$$), '', 'hazırlanıyor');
 select is(left(tests.call('om', 'advance_order', 'c1', $$, 'ready_for_pickup'$$), 10), 'HATA 22023', 'kargolu sipariş mağazada hazır olamaz');
-select is(tests.call('om', 'advance_order', 'c1', $$, 'shipped'$$), '', 'kargoda');
+select matches(tests.call('om', 'advance_order', 'c1', $$, 'shipped'$$), 'Önce gönderiyi işleyin', 'gönderisiz kargolanamaz');
+create function tests.shp(p_name text) returns uuid language sql as
+$$ select id from public.shipments where order_id = tests.o(p_name) and status <> 'cancelled' $$;
+create function tests.ship(p_as text, p_name text, p_to text) returns text language sql volatile as
+$$ select tests.run_as(p_as, format('select public.advance_shipment(%L, %L)', tests.shp(p_name), p_to)) $$;
+create function tests.track(p_as text, p_name text, p_no text, p_carrier text default 'Pgtap Kargo') returns text language sql volatile as
+$$ select tests.run_as(p_as, format('select public.update_shipment(%L, %L, %L)', tests.shp(p_name),
+     (select id from public.carriers where name = p_carrier), p_no)) $$;
+create function tests.carrier(p_as text, p_name text, p_url text, p_active boolean default true, p_id uuid default null) returns text language sql volatile as
+$$ select tests.run_as(p_as, format('select public.save_carrier(%L, %L, %L, %L)', p_id, p_name, p_url, p_active)) $$;
+select ok(tests.carrier('ad', 'Pgtap Kargo', 'https://kargo.test/takip?no={no}') not like 'HATA%', 'firma eklenir');
+select ok(tests.call('om', 'create_shipment', 'c1') not like 'HATA%', 'gönderi oluşur');
+select is(tests.track('om', 'c1', 'CC11111'), '', 'takip numarası');
+select is(tests.ship('om', 'c1', 'handed_over'), '', 'kargoda');
 select is(left(tests.call('om', 'cancel_order', 'c1', $$, 'x'$$), 10), 'HATA 22023', 'kargodaki iptal edilemez');
-select is(tests.call('om', 'advance_order', 'c1', $$, 'delivered'$$), '', 'teslim');
+select matches(tests.call('om', 'advance_order', 'c1', $$, 'delivered'$$), 'Önce gönderiyi işleyin', 'sipariş gönderisiz teslim edilemez');
+select is(tests.ship('om', 'c1', 'delivered'), '', 'teslim');
 select is(tests.st('c1'), 'delivered/cod_due', 'teslim tahsilat sayılmaz');
 
 -- ---------------------------------------------------------------------------
@@ -464,7 +480,7 @@ select is((select collected_as || ':' || status from public.payments where order
 -- ---------------------------------------------------------------------------
 -- Bütün durum geçişleri (izinli ve yasak), doğrudan yazımda
 -- ---------------------------------------------------------------------------
-create function tests.step(p_from text, p_to text, p_delivery text, p_paid text) returns text language plpgsql as $$
+create function tests.step(p_from text, p_to text, p_delivery text, p_paid text, p_ship text default null) returns text language plpgsql as $$
 declare
   v_id uuid;
 begin
@@ -474,7 +490,8 @@ begin
     p_paid, 1000, 0, 0, 0, 1000, false, now(), case when p_from = 'cancelled' then 'staff' end, gen_random_uuid())
   returning id into v_id;
   begin
-    update public.orders set order_status = p_to, cancel_code = case when p_to = 'cancelled' then 'staff' end where id = v_id;
+    update public.orders set order_status = p_to, cancel_code = case when p_to = 'cancelled' then 'staff' end,
+      shipment_status = coalesce(p_ship, shipment_status) where id = v_id;
     return 'olur';
   exception when sqlstate '22023' then
     return 'olmaz';
@@ -490,10 +507,14 @@ union all values ('preparing', 'shipped', 'shipping'), ('preparing', 'ready_for_
 create table tests.states (s text);
 insert into tests.states select unnest(array['pending_payment', 'awaiting_approval', 'approved', 'preparing',
   'ready_for_pickup', 'shipped', 'delivered', 'cancelled', 'returned_to_sender']);
-select is(tests.step(f.s, t.s, yol, 'paid'),
+select is(tests.step(f.s, t.s, yol, 'paid', case when yol = 'shipping' then case t.s when 'shipped' then 'handed_over'
+    when 'delivered' then 'delivered' when 'returned_to_sender' then 'returned' end end),
   case when exists (select 1 from tests.allowed a where a.f = f.s and a.t = t.s and a.d = yol) then 'olur' else 'olmaz' end,
   yol || ': ' || f.s || ' -> ' || t.s)
 from tests.states f, tests.states t, unnest(array['shipping', 'pickup']) yol where f.s <> t.s;
+select is(tests.step(f, t, 'shipping', 'paid', g), 'olmaz', f || ' -> ' || t || ', gönderi ' || coalesce(g, 'yok')) from (values
+  ('preparing', 'shipped', null), ('preparing', 'shipped', 'created'), ('shipped', 'delivered', null), ('shipped', 'delivered', 'handed_over'),
+  ('shipped', 'returned_to_sender', null), ('shipped', 'returned_to_sender', 'delivered')) x (f, t, g);
 select is(tests.step('pending_payment', 'awaiting_approval', 'shipping', 'pending'), 'olmaz', 'ödenmeden onaya geçilemez');
 select is(tests.step('ready_for_pickup', 'delivered', 'pickup', 'pending'), 'olmaz', 'ödenmeden mağazadan teslim olmaz');
 select is(left(tests.call('om', 'advance_order', 'k2', format(', %L', s)), 10), 'HATA 22023', 'approved -> ' || s || ' atlanamaz')
@@ -904,12 +925,246 @@ select is(jsonb_array_length(tests.call('cs', 'order_detail', 'y2')::jsonb -> 'a
 select ok(position('bir.test' in tests.call('cs', 'order_detail', 'y1')) = 0, 'ödeme adresi panele verilmez');
 
 -- ---------------------------------------------------------------------------
+-- Kargo: firmalar
+-- ---------------------------------------------------------------------------
+select is(left(tests.carrier(u, 'Yetkisiz Kargo', null), 10), 'HATA 42501', coalesce(u, 'ziyaretçi') || ': firma ekleyemez')
+from unnest(array[null, 'a', 'om', 'cs', 'pm', 'sm']) u;
+select is(left(tests.run_as('sa', $$ select public.save_carrier(null, 'Yetkisiz Kargo', null, true) $$, 'aal1'), 10), 'HATA 42501', 'iki adımsız firma eklenmez');
+select is(tests.run_as(u, 'select count(*) from public.carriers'), '0', u || ': firma okuyamaz') from unnest(array['a', 'pm', 'sm']) u;
+select is(tests.run_as(u, $$ select count(*) from public.carriers where name = 'Pgtap Kargo' $$), '1', u || ': firma okur') from unnest(array['sa', 'ad', 'om', 'cs']) u;
+select is(left(tests.carrier('sa', 'Kötü Adres', x), 10), 'HATA 23514', 'geçersiz takip adresi: ' || x)
+from unnest(array['http://kargo.test/{no}', 'javascript:alert(1)//{no}', 'https://kargo.test/takip', 'https://{no}.kargo.test/',
+  'https://kargo.test{no}', 'https://kargo/{no}', 'https://kisi@kargo.test/{no}', 'https://kargo.test/a b{no}',
+  'https://kargo.test/"{no}', 'https://kargo.test/<{no}', 'https://kargo.test/{no}{no}', 'https://kargo.test/{x}{no}',
+  'https://kargo.test/{no}' || repeat('a', 300)]) x;
+select is(left(tests.carrier('sa', x, null), 10), 'HATA 23514', 'geçersiz firma adı: ' || x) from unnest(array['x', ' ', repeat('a', 61)]) x;
+select is(left(tests.carrier('sa', null, null), 10), 'HATA 23502', 'adsız firma olmaz');
+select is(left(tests.carrier('sa', 'pgtap kargo', null), 10), 'HATA 23505', 'aynı ad iki kez olmaz');
+select is(left(tests.carrier('sa', 'Boş', null, null), 10), 'HATA 22023', 'kullanım durumu boş olamaz');
+select is(left(tests.carrier('sa', 'Yok', null, true, gen_random_uuid()), 10), 'HATA P0002', 'olmayan firma');
+select ok(tests.carrier('sa', ' Pgtap Eski ', '  ') not like 'HATA%', 'adresi olmayan firma');
+select is((select name || coalesce(url_template, '-') from public.carriers where name like 'Pgtap Eski%'), 'Pgtap Eski-', 'boşluk atılır');
+select is((select count(*) from public.audit_logs where action = 'carriers.insert' and actor_id in (tests.uid('sa'), tests.uid('ad'))), 2::bigint, 'ekleme geçmişe yazılır');
+
+-- Gönderi
+select is(tests.set('{"cod_limit": 50000, "phone_check": false, "cod_enabled": true}'), '', 'kapıda ödeme açık');
+create function tests.ready(p_name text, p_over jsonb default '{"payment": "cod"}', p_qty integer default 1) returns text language plpgsql as $f$
+declare
+  r text := tests.order(p_name, null, 'ucuz', p_qty, 10000 * p_qty + 21500, p_over);
+begin
+  if r <> 'ok' then return r; end if;
+  return tests.call('om', 'approve_order', p_name) || tests.call('om', 'advance_order', p_name, $$, 'preparing'$$);
+end $f$;
+create function tests.create_ship(p_as text, p_name text) returns text language sql volatile as
+$$ select tests.call(p_as, 'create_shipment', p_name) $$;
+select is(tests.ready('krg1', '{"payment": "cod"}', 2), '', 'hazırlanan sipariş');
+select is(left(tests.create_ship(u, 'krg1'), 10), 'HATA 42501', coalesce(u, 'ziyaretçi') || ': gönderi oluşturamaz')
+from unnest(array[null, 'a', 'cs', 'pm', 'sm']) u;
+select is(left(tests.call('om', 'create_shipment', 'krg1', '', 'aal1'), 10), 'HATA 42501', 'iki adımsız gönderi yok');
+select is(left(tests.run_as('om', format('select public.create_shipment(%L)', gen_random_uuid())), 10), 'HATA P0002', 'olmayan sipariş');
+select is(left(tests.create_ship('om', x), 10), 'HATA 22023', 'gönderi olmaz: ' || tests.st(x)) from unnest(array['c1', 'c2', 'k2', 'k5', 'm1']) x;
+create table tests.s as select tests.create_ship('om', 'krg1') as id;
+select is(tests.create_ship(u, 'krg1'), (select id from tests.s), u || ': ikinci istek aynı gönderi') from unnest(array['om', 'ad', 'sa']) u;
+select is((select string_agg(our_ref || ':' || status || ':' || provider, ',') from public.shipments where order_id = tests.o('krg1')), tests.no('krg1') || '-1:created:manual', 'tek gönderi');
+select is((select string_agg(i.quantity || '', ',') from public.shipment_items i where i.shipment_id = tests.shp('krg1')), '2', 'gönderi satırı');
+select is((select shipment_status from public.orders where id = tests.o('krg1')), 'created', 'siparişte gönderi durumu');
+select throws_ok(format($$ insert into public.shipments (order_id, our_ref) values (%L, 'X') $$, tests.o('krg1')), '23505', null, 'veritabanı ikinci gönderiyi reddeder');
+select is(tests.run_as(null, format('select (public.get_order(%L, %L) -> ''shipment'')::text', tests.no('krg1'), tests.tok('krg1'))), 'null', 'yola çıkmayan gönderi müşteriye görünmez');
+
+-- Takip bilgisi
+create function tests.see(p_name text) returns jsonb language sql volatile as
+$$ select tests.mine(p_name, 'get_order(%L, %L)')::jsonb -> 'shipment' $$;
+select matches(tests.ship('om', 'krg1', 'handed_over'), 'takip numarasını yazın', 'takip numarasız verilemez');
+select is(left(tests.track(u, 'krg1', 'AB12345'), 10), 'HATA 42501', coalesce(u, 'ziyaretçi') || ': takip yazamaz') from unnest(array[null, 'a', 'cs', 'pm', 'sm']) u;
+select is(left(tests.track('om', 'krg1', x), 10), 'HATA 22023', 'geçersiz takip: ' || coalesce(x, 'yok'))
+from unnest(array['1234', '', ' ', null, 'ABC_12', 'ÇA12345', 'ıabcde', 'AB12/34', repeat('1', 41)]) x;
+select is(left(tests.track('om', 'krg1', 'AB12345', 'Uydurma'), 10), 'HATA 22023', 'olmayan firma seçilmez');
+select is(tests.carrier('sa', 'Pgtap Eski', null, false, (select id from public.carriers where name = 'Pgtap Eski')) not like 'HATA%', true, 'firma kapatılır');
+select is((select count(*) from public.audit_logs where action = 'carriers.update' and (before ->> 'is_active') = 'true' and (after ->> 'is_active') = 'false'
+  and entity_id = (select id from public.carriers where name = 'Pgtap Eski')), 1::bigint, 'değişiklik geçmişte');
+select is(left(tests.track('om', 'krg1', 'AB12345', 'Pgtap Eski'), 10), 'HATA 22023', 'kapalı firma seçilmez');
+select is(left(tests.track('om', 'krg1', 'CC11111'), 10), 'HATA 22023', 'başka gönderinin numarası yazılmaz');
+select is((select tracking_no from public.shipments where id = tests.shp('krg1')), null, 'reddedilen yazılmaz');
+select is(tests.track('om', 'krg1', ' ab 123-45 '), '', 'boşluk ve küçük harf düzelir');
+select is((select tracking_no from public.shipments where id = tests.shp('krg1')), 'AB123-45', 'düzelmiş numara');
+select is(tests.see('krg1'), 'null'::jsonb, 'numara yazılsa da yola çıkmadan görünmez');
+select is(tests.track('om', 'krg1', 'AB123-45'), '', 'aynı değer');
+select is((select count(*) from public.shipment_events where shipment_id = tests.shp('krg1') and field = 'tracking_no'), 1::bigint, 'değişmeyen geçmişe yazılmaz');
+
+-- Durumlar
+select is(left(tests.ship(u, 'krg1', x), 10), 'HATA 42501', coalesce(u, 'ziyaretçi') || ': ' || x || ' yapamaz')
+from unnest(array[null, 'a', 'cs', 'pm', 'sm']) u, unnest(array['handed_over', 'delivered', 'returned', 'cancelled']) x;
+select is(left(tests.ship('om', 'krg1', x), 10), 'HATA 22023', 'created -> ' || coalesce(x, 'boş')) from unnest(array['delivered', 'returned', 'created', 'in_transit', 'uydurma', null]) x;
+select is(left(tests.run_as('om', format('select public.advance_shipment(%L, ''handed_over'')', gen_random_uuid())), 10), 'HATA P0002', 'olmayan gönderi');
+select is(tests.ship('om', 'krg1', 'handed_over'), '', 'kargoya verildi');
+select is(tests.ship('om', 'krg1', 'handed_over'), '', 'ikinci tıklama hata değil');
+select is(tests.st('krg1'), 'shipped/cod_due', 'sipariş kargoda');
+select is((select count(*) from public.outbox_jobs where payload = jsonb_build_object('order_id', tests.o('krg1'), 'status', 'shipped')), 1::bigint, 'tek e-posta');
+select is((select handed_over_at is not null and closed_at is null from public.shipments where id = tests.shp('krg1')), true, 'veriliş zamanı');
+select is(left(tests.ship('om', 'krg1', x), 10), 'HATA 22023', 'handed_over -> ' || coalesce(x, 'boş')) from unnest(array['cancelled', 'created', 'uydurma', null]) x;
+select is(left(tests.call('om', 'cancel_order', 'krg1', $$, 'x'$$), 10), 'HATA 22023', 'yola çıkan iptal edilemez');
+select is(tests.create_ship('om', 'krg1') like 'HATA 22023%', true, 'yola çıkan siparişe yeni gönderi yok');
+select is((select count(*) from public.shipments where order_id = tests.o('krg1')), 1::bigint, 'hâlâ tek gönderi');
+
+-- Müşterinin gördüğü
+select is(tests.see('krg1') - 'handed_over_at', '{"status": "handed_over", "carrier": "Pgtap Kargo", "tracking_no": "AB123-45",
+  "url": "https://kargo.test/takip?no=AB123-45", "closed_at": null}'::jsonb, 'müşteri takip bilgisini görür');
+select is(tests.run_as(x, format('select public.get_order(%L, %L)', tests.no('krg1'), 'yanlis-kod')), null, coalesce(x, 'ziyaretçi') || ': başkasının gönderisini göremez') from unnest(array[null, 'a']) x;
+
+-- Kargodayken düzeltme
+select is(tests.track('om', 'krg1', 'DUZELT99'), '', 'numara düzeltilir');
+select is(tests.see('krg1') ->> 'tracking_no', 'DUZELT99', 'müşteri yenisini görür');
+select is((select string_agg(field || ':' || coalesce(from_value, '-') || '>' || to_value || ':' || (actor_id = tests.uid('om')), ' ' order by seq)
+  from public.shipment_events where shipment_id = tests.shp('krg1')),
+  'status:->created:true carrier:->Pgtap Kargo:true tracking_no:->AB123-45:true status:created>handed_over:true tracking_no:AB123-45>DUZELT99:true', 'geçmiş eksiksiz');
+select is(tests.carrier('sa', 'Pgtap Kargo', 'https://kargo.test/takip?no={no}', false, (select id from public.carriers where name = 'Pgtap Kargo')) not like 'HATA%', true, 'kullanılan firma kapanır');
+select is(tests.track('om', 'krg1', 'DUZELT98'), '', 'kapanan firmadaki gönderi düzeltilebilir');
+select is(tests.carrier('sa', 'Pgtap Kargo', 'https://kargo.test/takip?no={no}', true, (select id from public.carriers where name = 'Pgtap Kargo')) not like 'HATA%', true, 'yeniden açılır');
+select throws_ok(format('update public.shipment_events set to_value = ''x'' where shipment_id = %L', tests.shp('krg1')), '42501', null, 'gönderi geçmişi değişmez');
+select throws_ok('delete from public.shipment_events', '42501', null, 'gönderi geçmişi silinmez');
+select throws_ok('truncate public.shipment_events', '42501', null, 'gönderi geçmişi boşaltılamaz');
+
+-- İletide takip bilgisi
+update public.outbox_jobs set status = 'sent' where payload ->> 'order_id' <> tests.o('krg1')::text or payload ->> 'status' is distinct from 'shipped';
+update public.outbox_jobs set status = 'pending', attempts = 0, run_after = now() where payload = jsonb_build_object('order_id', tests.o('krg1'), 'status', 'shipped');
+select is((select x -> 'shipment' from public.claim_emails() x), '{"carrier": "Pgtap Kargo", "tracking_no": "DUZELT98", "url": "https://kargo.test/takip?no=DUZELT98"}'::jsonb, 'iletide takip bilgisi');
+
+-- Panel
+create function tests.detail(p_name text, p_as text default 'cs') returns jsonb language sql volatile as
+$$ select tests.call(p_as, 'order_detail', p_name)::jsonb $$;
+select is(tests.detail('krg1') #>> '{shipment,our_ref}', tests.no('krg1') || '-1', 'panel gönderiyi görür');
+select is(jsonb_array_length(tests.detail('krg1') -> 'shipment_events'), 6, 'panel geçmişi görür');
+select is(tests.detail('krg1') -> 'cod', 'null'::jsonb, 'teslimden önce tahsilat kaydı yok');
+
+-- Teslim ve tahsilat
+select is(tests.ship('om', 'krg1', 'delivered'), '', 'teslim');
+select is(tests.ship('om', 'krg1', 'delivered'), '', 'ikinci teslim hata değil');
+select is(left(tests.ship('om', 'krg1', x), 10), 'HATA 22023', 'delivered -> ' || x) from unnest(array['handed_over', 'returned', 'cancelled']) x;
+select is(left(tests.track('om', 'krg1', 'SONRA123'), 10), 'HATA 22023', 'teslim edilen düzeltilemez');
+select is(tests.st('krg1'), 'delivered/cod_due', 'teslim tahsilat sayılmaz');
+create function tests.cod_id(p_name text) returns uuid language sql as
+$$ select x.id from public.cod_settlements x join public.shipments s on s.id = x.shipment_id where s.order_id = tests.o(p_name) $$;
+create function tests.cod(p_as text, p_name text, p_amount bigint, p_key uuid default gen_random_uuid(), p_ref text default 'Dekont', p_aal text default 'aal2') returns text language sql volatile as
+$$ select tests.run_as(p_as, format('select public.record_cod(%L, %L, %L, %L)', tests.cod_id(p_name), p_amount, p_ref, p_key), p_aal) $$;
+select is((select expected || ':' || status from public.cod_settlements where id = tests.cod_id('krg1')), '41500:pending', 'beklenen tutar');
+create function tests.waiting(p_name text) returns boolean language sql volatile as
+$$ select tests.run_as('om', format('select count(*) from public.list_orders(''cod'', %L)', tests.no(p_name))) = '1' $$;
+create function tests.codsum() returns bigint language sql volatile as $$ select tests.run_as('om', 'select cod from public.order_summary()')::bigint $$;
+create table tests.before as select tests.codsum() as n;
+select ok(tests.waiting('krg1'), 'para beklenenler listesinde');
+select is(left(tests.cod(u, 'krg1', 41500), 10), 'HATA 42501', coalesce(u, 'ziyaretçi') || ': tahsilat yazamaz') from unnest(array[null, 'a', 'om', 'cs', 'pm', 'sm']) u;
+select is(left(tests.cod('sa', 'krg1', 41500, p_aal => 'aal1'), 10), 'HATA 42501', 'iki adımsız tahsilat yok');
+select is(left(tests.cod('sa', 'krg1', x), 10), 'HATA 22023', 'geçersiz tutar: ' || coalesce(x::text, 'yok')) from unnest(array[0, null, 1000000001, -1000000001]::bigint[]) x;
+select is(left(tests.cod('sa', 'krg1', 100, p_ref => x), 10), 'HATA 22023', 'geçersiz açıklama: ' || coalesce(x, 'yok')) from unnest(array['', ' ', null, repeat('a', 101)]) x;
+select is(left(tests.cod('sa', 'krg1', 100, null), 10), 'HATA 22023', 'anahtarsız istek yok');
+select is(left(tests.run_as('sa', format('select public.record_cod(%L, 1, ''x'', %L)', gen_random_uuid(), gen_random_uuid())), 10), 'HATA P0002', 'olmayan tahsilat');
+select is(left(tests.cod('sa', 'krg1', -1), 10), 'HATA 22023', 'düzeltme kaydı eksiye düşüremez');
+select is((select count(*) from public.cod_receipts where settlement_id = tests.cod_id('krg1')), 0::bigint, 'reddedilen kayıt yazılmaz');
+create table tests.k as select gen_random_uuid() as k;
+select is(tests.cod('ad', 'krg1', 41000, (select k from tests.k)), 'short', 'eksik para');
+select is(tests.cod('ad', 'krg1', 41000, (select k from tests.k)), 'short', 'yinelenen istek');
+select is(left(tests.cod('ad', 'krg1', 500, (select k from tests.k)), 10), 'HATA 22023', 'anahtar başka tutarda kullanılmaz');
+select is((select count(*) || ':' || sum(amount) from public.cod_receipts where settlement_id = tests.cod_id('krg1')), '1:41000', 'para bir kez sayılır');
+select is(tests.st('krg1'), 'delivered/cod_due', 'eksik para tahsilat sayılmaz');
+select ok(tests.waiting('krg1'), 'eksik uyarıda kalır');
+select is(tests.cod('sa', 'krg1', 500), 'settled', 'tamamlandı');
+select is(tests.st('krg1'), 'delivered/cod_collected', 'tahsil edildi');
+select is((select status || (paid_at is not null) from public.payments where order_id = tests.o('krg1')), 'paidtrue', 'ödeme kaydı');
+select ok(not tests.waiting('krg1'), 'uyarı kalkar');
+select is(tests.codsum(), (select n - 1 from tests.before), 'özet azalır');
+select is(tests.cod('sa', 'krg1', 1), 'over', 'fazla para');
+select is(tests.st('krg1'), 'delivered/cod_collected', 'fazlada da tahsil edilmiş');
+select ok(tests.waiting('krg1'), 'fazla uyarıda kalır');
+select is(tests.cod('sa', 'krg1', -1001, p_ref => 'Yanlış kayıt'), 'short', 'eksi kayıtla düzeltilir');
+select is(tests.st('krg1') || (select status || (paid_at is null) from public.payments where order_id = tests.o('krg1')), 'delivered/cod_duependingtrue', 'düzeltme geri alır');
+select is(tests.cod('sa', 'krg1', -40500), 'pending', 'sıfıra inen kayıt beklemeye döner');
+select is(tests.cod('sa', 'krg1', 41500), 'settled', 'yeniden tamam');
+select is(jsonb_array_length(tests.detail('krg1') #> '{cod,receipts}'), 6, 'panelde bütün kayıtlar');
+select is((select recorded_by from public.cod_receipts where idempotency_key = (select k from tests.k)), tests.uid('ad'), 'kaydeden kişi');
+select throws_ok('update public.cod_receipts set amount = 1', '42501', null, 'tahsilat kaydı değişmez');
+select throws_ok('delete from public.cod_receipts', '42501', null, 'tahsilat kaydı silinmez');
+select throws_ok('truncate public.cod_receipts', '42501', null, 'tahsilat kaydı boşaltılamaz');
+
+-- Geri dönüş: ürün kontrol edilmeden stoğa eklenmez
+select is(tests.ready('krg2'), '', 'dönecek sipariş');
+select ok(tests.create_ship('om', 'krg2') not like 'HATA%', 'gönderi');
+select is(tests.track('om', 'krg2', 'DONEN123'), '', 'takip');
+select is(tests.ship('om', 'krg2', 'handed_over'), '', 'verildi');
+create table tests.st2 as select tests.stock('ucuz') as v;
+select is(tests.ship('om', 'krg2', 'returned'), '', 'geri döndü');
+select is(tests.st('krg2') || ':' || (select shipment_status from public.orders where id = tests.o('krg2')), 'returned_to_sender/cancelled:returned', 'kapıda ödeme beklenmez');
+select is((select status from public.payments where order_id = tests.o('krg2')), 'cancelled', 'ödeme kaydı kapanır');
+select is(tests.stock('ucuz'), (select v from tests.st2), 'dönen ürün kendiliğinden stoğa girmez');
+select is(tests.cod_id('krg2'), null, 'dönen gönderide tahsilat beklenmez');
+select is(left(tests.ship('om', 'krg2', x), 10), 'HATA 22023', 'returned -> ' || x) from unnest(array['handed_over', 'delivered', 'cancelled']) x;
+select is(tests.see('krg2') ->> 'status', 'returned', 'müşteri geri dönüşü görür');
+
+-- Önceden ödenmiş sipariş
+select is(tests.order('krg3', null, 'ucuz', 1, 30000), 'ok', 'havale siparişi');
+select ok(tests.match('om', 'krg3', 30000, 'KRG3') not like 'HATA%', 'para görüldü');
+select is(tests.confirm('sa', 'KRG3'), 'paid', 'onaylandı');
+select is(tests.call('om', 'approve_order', 'krg3') || tests.call('om', 'advance_order', 'krg3', $$, 'preparing'$$), '', 'hazırlanıyor');
+select ok(tests.create_ship('om', 'krg3') not like 'HATA%', 'gönderi');
+
+-- Gönderi iptali ve yenisi
+select is(tests.track('om', 'krg3', 'TEKRAR01'), '', 'takip');
+select is(tests.ship('om', 'krg3', 'cancelled'), '', 'gönderi iptal edilir');
+select is(tests.st('krg3') || ':' || (select shipment_status from public.orders where id = tests.o('krg3')), 'preparing/paid:none', 'sipariş hazırlanmaya devam eder');
+select is(tests.detail('krg3') -> 'shipment', 'null'::jsonb, 'iptal edilen panelde açık görünmez');
+select ok(tests.create_ship('om', 'krg3') not like 'HATA%', 'yeni gönderi');
+select is((select string_agg(our_ref || status, ',' order by our_ref) from public.shipments where order_id = tests.o('krg3')), tests.no('krg3') || '-1cancelled,' || tests.no('krg3') || '-2created', 'numaralar ayrı');
+select is(tests.track('om', 'krg3', 'TEKRAR01'), '', 'iptal edilenin numarası yeniden kullanılabilir');
+select is(tests.ship('om', 'krg3', 'handed_over') || tests.ship('om', 'krg3', 'delivered'), '', 'teslim');
+select is(tests.st('krg3'), 'delivered/paid', 'ödenmiş sipariş teslim');
+select is(tests.cod_id('krg3'), null, 'ödenmişte kapıda tahsilat yok');
+
+-- Sipariş iptali açık gönderiyi kapatır
+select is(tests.ready('krg4'), '', 'iptal edilecek sipariş');
+select ok(tests.create_ship('om', 'krg4') not like 'HATA%', 'gönderi');
+select is(tests.call('om', 'cancel_order', 'krg4', $$, 'vazgeçti'$$), '', 'sipariş iptal');
+select is((select s.status || ':' || o.shipment_status from public.shipments s join public.orders o on o.id = s.order_id where o.id = tests.o('krg4')), 'cancelled:none', 'gönderi de iptal');
+select is(tests.run_as('om', format('select public.advance_shipment(%L, ''handed_over'')', (select id from public.shipments where order_id = tests.o('krg4')))) like 'HATA 22023%', true, 'iptal edilen gönderi yola çıkamaz');
+select is(left(tests.create_ship('om', 'krg4'), 10), 'HATA 22023', 'iptal edilen siparişe gönderi yok');
+
+-- Mağaza siparişi, ödenmiş geri dönüş, başka kaydın anahtarı ve not sızıntısı
+select is(tests.order('krg5', null, 'ucuz', 1, 10000, '{"delivery": "pickup", "payment": "store"}'), 'ok', 'mağaza siparişi');
+select is(tests.call('om', 'approve_order', 'krg5') || tests.call('om', 'advance_order', 'krg5', $$, 'preparing'$$), '', 'hazırlanıyor');
+select is(left(tests.create_ship('om', 'krg5'), 10), 'HATA 22023', 'mağazadan teslimde gönderi yok');
+select is(tests.order('krg6', null, 'ucuz', 1, 30000), 'ok', 'havale siparişi');
+select ok(tests.match('om', 'krg6', 30000, 'KRG6') not like 'HATA%', 'para görüldü');
+select is(tests.confirm('sa', 'KRG6'), 'paid', 'onaylandı');
+select is(tests.call('om', 'approve_order', 'krg6') || tests.call('om', 'advance_order', 'krg6', $$, 'preparing'$$), '', 'hazırlanıyor');
+select ok(tests.create_ship('om', 'krg6') not like 'HATA%', 'gönderi');
+select is(tests.track('om', 'krg6', 'KRG66666'), '', 'takip');
+select throws_ok(format('update public.shipments set tracking_no = ''CC11111'' where id = %L', tests.shp('krg6')), '23505', null, 'veritabanı aynı takip numarasını reddeder');
+select is(tests.call('om', 'cancel_order', 'krg5', $$, 'başkasının notu'$$), '', 'başka sipariş iptal');
+select is(tests.ship('om', 'krg6', 'handed_over'), '', 'verildi');
+select is((select note from public.order_status_history where order_id = tests.o('krg6') and to_value = 'shipped'), null, 'başka siparişin notu yazılmaz');
+select is(tests.ship('om', 'krg6', 'returned'), '', 'geri döndü');
+select is(tests.st('krg6') || (select status from public.payments where order_id = tests.o('krg6')), 'returned_to_sender/paidpaid', 'ödenmiş para kaybolmaz');
+select is(tests.ready('krg7'), '', 'ikinci kapıda ödeme');
+select ok(tests.create_ship('om', 'krg7') not like 'HATA%', 'gönderi');
+select is(tests.track('om', 'krg7', 'KRG77777') || tests.ship('om', 'krg7', 'handed_over') || tests.ship('om', 'krg7', 'delivered'), '', 'teslim');
+select is(left(tests.cod('ad', 'krg7', 41000, (select k from tests.k)), 10), 'HATA 22023', 'başka tahsilatın anahtarı kullanılmaz');
+
+-- İlçe listesi
+select is(private.valid_district(c, d), s, c || '/' || d) from (values ('Eskişehir', 'Odunpazarı', true), ('Eskişehir', 'Nilüfer', false),
+  ('Bursa', 'Nilüfer', true), ('Samsun', '19 Mayıs', true), ('Uydurma', 'Merkez', false), ('Eskişehir', 'odunpazarı', false), ('Eskişehir', '', false)) x (c, d, s);
+select is(private.valid_district(c, d), false, 'boş il veya ilçe') from (values (null, 'Odunpazarı'), ('Eskişehir', null), (null, null)) x (c, d);
+select is(left(tests.order('ilce', null, 'ucuz', 1, 30000, jsonb_build_object('address', tests.addr() || jsonb_build_object('district', x))), 10), 'HATA 22023', 'sipariş adresinde ilçe listede yok: ' || coalesce(x, 'yok'))
+from unnest(array['Nilüfer', 'Uydurma', '', null]) x;
+
+-- ---------------------------------------------------------------------------
 -- Değişmez eşitlikler
 -- ---------------------------------------------------------------------------
 select is_empty($$ select v.name from tests.v v join public.inventory i on i.variant_id = v.id
   where i.on_hand <> (select sum(delta) from public.stock_movements m where m.variant_id = v.id) $$, 'stok = hareket toplamı');
 select is_empty($$ select v.name from tests.v v join public.inventory i on i.variant_id = v.id
   where i.reserved <> (select coalesce(sum(quantity), 0) from public.stock_reservations r where r.variant_id = v.id and r.status = 'active') $$, 'ayrılan = aktif ayırma toplamı');
+select is_empty($$ select o.order_no from public.orders o join tests.o t on t.id = o.id left join public.shipments s on s.order_id = o.id and s.status <> 'cancelled'
+  where o.shipment_status <> coalesce(s.status, 'none') $$, 'siparişin ve gönderinin durumu aynı');
+select is_empty($$ select s.id from public.shipments s join tests.o t on t.id = s.order_id, public.order_items i where i.order_id = s.order_id
+  and i.quantity is distinct from (select x.quantity from public.shipment_items x where x.shipment_id = s.id and x.order_item_id = i.id) $$, 'gönderi bütün siparişi kapsar');
 select is((select count(*) from cron.job where jobname = 'siparis-suresi' and active), 1::bigint, 'süre zamanlayıcısı kurulu');
 
 select * from finish();

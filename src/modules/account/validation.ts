@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cities } from "./cities";
+import { districts } from "./districts";
 
 /** "0555 000 00 00", "+90 555…" → "+905550000000". Cep telefonu değilse null. */
 export function parsePhone(text: string) {
@@ -49,13 +50,13 @@ export const profileSchema = z.object({
 
 const POSTAL = "Posta kodu 5 rakam olmalı.";
 
-export const addressSchema = z.object({
+const addressFields = z.object({
   id: z.union([blank, z.uuid("Geçersiz istek.")], "Geçersiz istek."),
   title: text("Adres adı", 1, 40),
   recipient: text("Alıcı", 2, 100),
   phone: mobile,
   city: z.enum(cities, "İl seçin."),
-  district: text("İlçe", 2, 60),
+  district: z.string("İlçe seçin."),
   line: text("Açık adres", 10, 300),
   postal_code: z.union(
     [
@@ -72,6 +73,22 @@ export const addressSchema = z.object({
     .optional()
     .transform((v) => v === "on"),
 });
+
+const knownDistrict = (a: z.output<typeof placeFields>) =>
+  districts[a.city].includes(a.district);
+
+const placeFields = addressFields.pick({
+  city: true,
+  district: true,
+  line: true,
+  postal_code: true,
+});
+export const placeSchema = placeFields.refine(knownDistrict, "İlçe seçin.");
+export const personSchema = addressFields.pick({
+  recipient: true,
+  phone: true,
+});
+export const addressSchema = addressFields.refine(knownDistrict, "İlçe seçin.");
 
 export const consentKinds = {
   email_marketing: "E-posta",

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase";
 import { activeProvider } from "@/modules/payments/service";
+import { codStatuses, shipmentStatuses } from "@/modules/shipping/labels";
 import type { OrderStatus } from "./labels";
 import {
   attemptStatuses,
@@ -49,6 +50,14 @@ const address = z.object({
   line: z.string(),
   postal_code: z.string().nullable(),
 });
+
+const tracking = {
+  carrier: z.string().nullable(),
+  tracking_no: z.string().nullable(),
+  url: z.string().nullable(),
+  handed_over_at: z.string().nullable(),
+  closed_at: z.string().nullable(),
+};
 
 // --- Müşteri ----------------------------------------------------------------
 
@@ -111,6 +120,9 @@ const orderSchema = z.object({
     .object({ address: z.string(), until: z.string().nullable() })
     .nullable(),
   address: address.nullable(),
+  shipment: z
+    .object({ ...tracking, status: keys(shipmentStatuses) })
+    .nullable(),
   items: z.array(item),
 });
 
@@ -146,7 +158,7 @@ const rowSchema = z.object({
 });
 
 export async function listOrders(filter: {
-  status: OrderStatus | "refund" | "";
+  status: OrderStatus | "refund" | "cod" | "";
   query: string;
   page: number;
 }) {
@@ -208,6 +220,42 @@ const detailSchema = z.object({
       created_at: z.string(),
     }),
   ),
+  shipment: z
+    .object({
+      ...tracking,
+      id: z.string(),
+      our_ref: z.string(),
+      status: keys(shipmentStatuses),
+      carrier_id: z.string().nullable(),
+    })
+    .nullable(),
+  shipment_events: z.array(
+    z.object({
+      seq: z.number(),
+      ref: z.string(),
+      field: z.string(),
+      from: z.string().nullable(),
+      to: z.string().nullable(),
+      actor: z.string().nullable(),
+      at: z.string(),
+    }),
+  ),
+  cod: z
+    .object({
+      id: z.string(),
+      expected: z.number(),
+      status: keys(codStatuses),
+      receipts: z.array(
+        z.object({
+          seq: z.number(),
+          amount: z.number(),
+          reference: z.string(),
+          by: z.string(),
+          at: z.string(),
+        }),
+      ),
+    })
+    .nullable(),
   history: z.array(
     z.object({
       seq: z.number(),
@@ -240,6 +288,7 @@ export async function getOrderSummary() {
       review: z.number(),
       refund: z.number(),
       overdue: z.number(),
+      cod: z.number(),
     })
     .parse(data);
 }

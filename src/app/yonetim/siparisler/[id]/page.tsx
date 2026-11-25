@@ -32,6 +32,8 @@ import {
 } from "@/modules/orders/labels";
 import { Fact, ItemList, Totals } from "@/modules/orders/parts";
 import { getOrderDetail, type OrderDetail } from "@/modules/orders/queries";
+import { CodSettlement, Shipment } from "@/modules/shipping/panel";
+import { listCarriers } from "@/modules/shipping/queries";
 
 export const metadata: Metadata = { title: "Sipariş" };
 
@@ -44,6 +46,10 @@ export default async function OrderDetailPage({
   if (!o) notFound();
 
   const can = (permission: string) => permissions.includes(permission);
+  const ships =
+    o.delivery_method === "shipping" &&
+    (o.order_status === "preparing" || o.shipment_events.length > 0);
+  const carriers = ships ? await listCarriers() : [];
   const hidden = { id: o.id };
   const open =
     o.order_status === "pending_payment" ||
@@ -156,6 +162,22 @@ export default async function OrderDetailPage({
                 submit="Ödemeyi sorgula"
               />
             )}
+        </Section>
+      )}
+
+      {ships && (
+        <Section title="Kargo">
+          <Shipment
+            order={o}
+            carriers={carriers}
+            canWrite={can("shipping.write")}
+          />
+        </Section>
+      )}
+
+      {o.cod && (
+        <Section title="Kargodan gelecek para">
+          <CodSettlement cod={o.cod} canWrite={can("cod.reconcile")} />
         </Section>
       )}
 
