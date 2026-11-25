@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useId, useState } from "react";
+import { AddToCart } from "@/modules/cart/add-to-cart";
 import { Price } from "./card";
 import { pickVariant, uniqueBy } from "./selection";
 import type { ShopProduct } from "./queries";
@@ -11,9 +12,11 @@ const stockLabels = { in: "Stokta", low: "Az kaldı", out: "Tükendi" } as const
 /** Görseller ile renk ve beden seçimi. Renk seçilince görseller de değişir. */
 export function ProductView({
   product,
+  favorite,
   children,
 }: {
   product: Pick<ShopProduct, "name" | "brand" | "images" | "variants">;
+  favorite: React.ReactNode;
   /** Seçimin altındaki sabit bilgiler. */
   children: React.ReactNode;
 }) {
@@ -165,10 +168,13 @@ export function ProductView({
           )}
         </p>
 
-        <p className="rounded-2xl bg-nane p-4">
-          İnternetten satış yakında başlıyor. Ürünlerimizi Eskişehir&apos;deki
-          mağazamızda görebilirsiniz.
-        </p>
+        {/* Seçim değişince önceki ileti kalkar. */}
+        <AddToCart
+          key={variant?.id ?? color}
+          variant={variant?.id}
+          soldOut={stock === "out"}
+        />
+        {favorite}
 
         {children}
       </div>

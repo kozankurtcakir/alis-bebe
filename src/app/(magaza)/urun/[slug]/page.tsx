@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { FavoriteButton } from "@/modules/favorites/button";
+import { getFavorite } from "@/modules/favorites/queries";
 import { Breadcrumb } from "@/modules/shop/breadcrumb";
 import { ProductView } from "@/modules/shop/product-view";
 import { getProduct } from "@/modules/shop/queries";
@@ -20,7 +22,11 @@ export async function generateMetadata({
 export default async function ProductPage({
   params,
 }: PageProps<"/urun/[slug]">) {
-  const product = await getProduct((await params).slug);
+  const { slug } = await params;
+  const [product, favorite] = await Promise.all([
+    getProduct(slug),
+    getFavorite(slug),
+  ]);
   if (!product) notFound();
 
   return (
@@ -33,6 +39,7 @@ export default async function ProductPage({
           images: product.images,
           variants: product.variants,
         }}
+        favorite={<FavoriteButton slug={slug} on={favorite} />}
       >
         <Section title="Açıklama">
           <p className="break-words whitespace-pre-line">

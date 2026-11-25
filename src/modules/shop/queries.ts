@@ -28,22 +28,21 @@ export const getCategories = cache(async () =>
   categorySchema.parse(await call("shop_categories")),
 );
 
-const cardSchema = z.array(
-  z.object({
-    name: z.string(),
-    slug: z.string(),
-    price: z.number(),
-    compare_at_price: z.number().nullable(),
-    has_more_prices: z.boolean(),
-    color_count: z.number(),
-    sold_out: z.boolean(),
-    image_path: z.string().nullable(),
-    image_alt: z.string().nullable(),
-    total: z.number(),
-  }),
-);
+export const cardSchema = z.object({
+  name: z.string(),
+  slug: z.string(),
+  price: z.number(),
+  compare_at_price: z.number().nullable(),
+  has_more_prices: z.boolean(),
+  color_count: z.number(),
+  sold_out: z.boolean(),
+  image_path: z.string().nullable(),
+  image_alt: z.string().nullable(),
+});
 
-export type ShopCard = z.infer<typeof cardSchema>[number];
+export type ShopCard = z.infer<typeof cardSchema>;
+
+const pageSchema = z.array(cardSchema.extend({ total: z.number() }));
 
 export const SHOP_PAGE_SIZE = 24;
 
@@ -54,7 +53,7 @@ export async function getProducts(
   filter: Partial<ShopFilter> = {},
   limit = SHOP_PAGE_SIZE,
 ) {
-  const products = cardSchema.parse(
+  const products = pageSchema.parse(
     await call("shop_products", {
       p_category: scope.category ?? null,
       p_query: scope.query ?? null,

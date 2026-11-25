@@ -1,5 +1,6 @@
 import Form from "next/form";
 import Link from "next/link";
+import { getCartCount } from "@/modules/cart/queries";
 import { getCategories } from "@/modules/shop/queries";
 
 // Sayfa bütünüyle hazır olunca gösterilir; içerik sonradan gelip sayfayı kaydırmaz.
@@ -10,7 +11,10 @@ export default async function ShopLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const categories = await getCategories();
+  const [categories, cartCount] = await Promise.all([
+    getCategories(),
+    getCartCount(),
+  ]);
 
   return (
     <>
@@ -53,6 +57,18 @@ export default async function ShopLayout({
             className="ml-auto inline-flex min-h-11 items-center underline-offset-4 hover:underline"
           >
             Hesabım
+          </Link>
+          <Link
+            href="/sepet"
+            className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
+          >
+            Sepet
+            {cartCount > 0 && (
+              <span className="ml-1 rounded-full bg-hardal px-2 text-sm font-semibold">
+                {cartCount}
+                <span className="sr-only"> ürün</span>
+              </span>
+            )}
           </Link>
         </div>
         <nav aria-label="Kategoriler" className="mx-auto max-w-6xl px-4 pb-2">

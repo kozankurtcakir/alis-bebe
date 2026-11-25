@@ -46,3 +46,7 @@ export async function createClient() {
     },
   );
 }
+
+/** Oturum çerezi var mı? Geçerli olup olmadığına veritabanı karar verir. */
+export const hasSessionCookie = async () =>
+  (await cookies()).getAll().some((c) => c.name.startsWith("sb-"));

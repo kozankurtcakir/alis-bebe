@@ -5,7 +5,7 @@ Bu dosya projenin ana talimat dosyasıdır. Her oturumda önce bu dosya okunur v
 ## Proje durumu
 
 - **Genel onay:** Proje sahibi 24.11.2026'da mimariyi, veritabanı taslağını, akışları, 15 aşamayı, görsel yönü ve bütçeyi onayladı; aşamaların sırayla kurulmasını istedi.
-- **Güncel aşama:** Aşama 0-6 tamam (25.11.2026); Aşama 7'nin tasarımı proje sahibinin onayını bekliyor. Ayrıntı: `docs/asamalar.md`.
+- **Güncel aşama:** Aşama 0-7 tamam (25.11.2026); sırada Aşama 8'in iş soruları ve tasarımı var. Ayrıntı: `docs/asamalar.md`.
 - Bir karar kesinleştiğinde veya aşama bittiğinde bu bölüm, "Kararlar" bölümü ve `docs/asamalar.md` güncellenir.
 
 ## Belgeler
@@ -125,6 +125,7 @@ Altyapı bunları destekler; ancak hiçbir çıktı hukuki danışmanlık yerine
 - Stok: varsayılan kritik seviye 3; uyarı şimdilik panelde; ikinci kişi onayı yok; barkod okuyucu kullanılmayacak. Stok ayırma Aşama 8'de siparişle kurulur.
 - Excel: tek hatalı satır bütün dosyayı durdurur; boş hücre değiştirmez; silme, yayınlama ve maliyet yüklenmez; dosya saklanmaz. Fiyatı %10 veya daha fazla değişen satır ayrıca onay ister. Uygulamayı yalnızca dosyayı yükleyen yapar.
 - Mağaza: ziyaretçi tabloları okuyamaz, yalnızca `shop_*` fonksiyonlarını çağırır; SKU, barkod ve kesin stok verilmez. Fiyat ve stok önbelleğe alınmaz. Tükenen ürün listenin sonundadır.
+- Sepet ve hesap: girişte iki sepet birleşir, büyük adet kalır; misafir sepeti 30 gün, üye sepeti süresiz; bir varyanttan en fazla 10 adet, sepette 50 çeşit. Favori yalnızca üyeye. En fazla 10 adres, yalnızca Türkiye; ilçe elle yazılır; adres işlem geçmişine yazılmaz. İleti izni yalnızca Hesabım'da ve kapalı başlar.
 - Sabit yayın tarihi yok; aşama bazlı ilerlenir.
 - Geliştirme bilgisayarı: Windows 11, 16 GB RAM. Docker zorlanırsa ücretsiz bulut geliştirme projesine geçilir.
 - Görsel yön: Odunpazarı evleri. Petrol `#17454F`, hardal `#F4B942` (üzerinde petrol yazı), nar `#B93A4B`, nane `#CFE8E1`, zemin `#F4F9F8`. Yazı tipi: Baloo 2 ve Figtree.

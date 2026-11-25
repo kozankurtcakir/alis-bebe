@@ -29,6 +29,10 @@ export default function SignUpPage() {
           },
         ]}
       />
+      <p className="text-sm text-gri">
+        Site henüz yayında değil. Üyelik sözleşmesi ve KVKK aydınlatma metni
+        hazırlanıyor.
+      </p>
       <p>
         Üye misiniz?{" "}
         <Link href="/giris" className="underline">

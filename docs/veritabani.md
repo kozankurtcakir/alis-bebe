@@ -22,7 +22,7 @@ Durum: taslak onaylandı. Aşama 2'de yalnızca o aşamanın tabloları kurulur;
 | `role_permissions` | `role_id`, `permission_id` | PK: ikisi birlikte |
 | `user_roles` | `user_id`, `role_id`, `granted_by`, `granted_at` | PK: kullanıcı+rol; yalnızca fonksiyonla yazılır |
 | `audit_logs` | `actor_id?`, `action`, `entity`, `entity_id`, `before?`, `after?`, `ip?` | Yalnızca ekleme; gizli veri yazılmaz |
-| `addresses` | `user_id`, `title`, `recipient`, `phone`, `city`, `district`, `line`, `postal_code?`, `is_default` | Aşama 7; kullanıcı başına tek varsayılan |
+| `addresses` | `user_id`, `title`, `recipient`, `phone`, `city`, `district`, `line`, `postal_code?`, `is_default` | Aşama 7; kullanıcı başına tek varsayılan, en fazla 10; il 81 ilden biri |
 
 ## Katalog (Aşama 3)
 
@@ -72,9 +72,11 @@ Değişmez eşitlikler:
 
 | Tablo | Alanlar | Kural |
 |---|---|---|
-| `carts` | `user_id?`, `token_hash?`, `expires_at` | İkisinden biri dolu |
-| `cart_items` | `cart_id`, `variant_id`, `quantity` | `quantity > 0`; varyant tekrarı yok; fiyat saklanmaz |
-| `favorites` | `user_id`, `product_id` | PK: ikisi birlikte |
+| `carts` | `user_id?`, `token_hash?`, `expires_at?` | İlk ikisinden yalnızca biri dolu. Misafir: kodun SHA-256 özeti ve 30 gün; üye: süresiz |
+| `cart_items` | `cart_id`, `variant_id`, `quantity` | Adet 1–10; varyant tekrarı yok; en fazla 50 çeşit; fiyat saklanmaz |
+| `favorites` | `user_id`, `product_id` | PK: ikisi birlikte; en fazla 200 |
+
+`carts`, `cart_items` ve `favorites` doğrudan okunamaz ve yazılamaz. Ziyaretçi `cart_count`, `cart_get`, `cart_add`, `cart_set` çağırır; üye ayrıca `cart_merge`, `set_favorite`, `is_favorite`, `list_favorites`, `save_address`, `delete_address`, `set_consent`. Üyenin kimliği yalnızca oturumdan alınır. `addresses` ve `consents` için yalnızca kendi satırını okuma izni vardır.
 
 ## Sipariş (Aşama 8)
 
@@ -119,7 +121,7 @@ Değişmez eşitlikler:
 |---|---|---|
 | `legal_documents` | `kind`, `version`, `body`, `published_at` | 8 |
 | `order_legal_acceptances` | `order_id`, `document_id`, `rendered_body`, `accepted_at`, `ip` | 8 |
-| `consents` | `user_id?`, `email?`, `kind`, `granted`, `source`, `at` | 7 |
+| `consents` | `seq`, `user_id`, `kind`, `granted`, `source`, `at` | 7; yalnızca ekleme, son kayıt geçerli |
 | `outbox_jobs` | `kind`, `payload`, `status`, `attempts`, `run_after`, `dedupe_key` | 8 |
 | `notifications` | `user_id?`, `kind`, `data`, `read_at?` | 8 |
 | `settings` | `key`, `value jsonb`, `is_sensitive` | 12 (ihtiyaç olan anahtar daha önce eklenebilir) |

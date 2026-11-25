@@ -1,100 +1,10 @@
-import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import sharp from "sharp";
+import { newTag, removeCategory, seed, uploadImage } from "./urunler";
 import { sql } from "./yardim";
 
-// Rakamsız ve benzersiz: paralel çalışan testlerin ürünleriyle karışmaz.
-const tag =
-  "q" +
-  randomUUID()
-    .replace(/[^a-f]/g, "")
-    .slice(0, 9)
-    .padEnd(9, "z");
+const tag = newTag();
 const category = `test-${tag}`;
-const images: string[] = [];
-
-/** Depoya doğrudan yazar; yalnızca test hazırlığı ve temizliği içindir. */
-let serviceKey: string | undefined;
-async function storage(path: string, method: string, body?: BodyInit) {
-  serviceKey ??= execFileSync(
-    "docker",
-    ["exec", "supabase_storage_alis-bebe", "printenv", "SERVICE_KEY"],
-    { encoding: "utf8" },
-  ).trim();
-  const response = await fetch(
-    `http://127.0.0.1:54321/storage/v1/object/product-images/${path}`,
-    {
-      method,
-      headers: {
-        authorization: `Bearer ${serviceKey}`,
-        "content-type": "image/webp",
-      },
-      body,
-    },
-  );
-  expect(response.ok).toBe(true);
-}
-
-async function uploadImage(color: string) {
-  const path = `${randomUUID()}.webp`;
-  // Gürültü, görseli gerçek fotoğraf ağırlığına yaklaştırır.
-  const image = await sharp({
-    create: {
-      width: 1200,
-      height: 1500,
-      channels: 3,
-      background: color,
-      noise: { type: "gaussian", mean: 128, sigma: 12 },
-    },
-  })
-    .webp({ quality: 82 })
-    .toBuffer();
-  await storage(path, "POST", new Uint8Array(image));
-  images.push(path);
-  return path;
-}
-
-type Seed = {
-  name: string;
-  slug: string;
-  status?: string;
-  published?: string;
-  images: { path: string; color?: string; alt: string }[];
-  /** renk, beden kodu, fiyat, eski fiyat, stok */
-  variants: [string, string, number, number | null, number][];
-};
-
-const text = (v: string) => `'${v.replaceAll("'", "''")}'`;
-
-/** Ürünü bütün parçalarıyla tek işlemde ekler; yalnızca test hazırlığı içindir. */
-function seed(p: Seed) {
-  const id = randomUUID();
-  return [
-    `insert into public.products (id, name, slug, audience, gender, vat_bps, description, material, status, published_at)
-     values ('${id}', ${text(p.name)}, '${p.slug}', 'baby', 'unisex', 1000, '<b>Yumuşak</b> <script>window.sizdi=1</script>', '%100 pamuk',
-       '${p.status ?? "published"}', ${p.published ? `'${p.published}'` : "null"});`,
-    `insert into public.product_categories (product_id, category_id, is_primary)
-     select '${id}', id, true from public.categories where slug = '${category}';`,
-    ...p.images.map(
-      (i, n) =>
-        `insert into public.product_images (product_id, color_id, path, width, height, alt, sort_order)
-         values ('${id}', (select id from public.colors where slug = '${i.color ?? ""}'), '${i.path}', 1200, 1500, ${text(i.alt)}, ${n});`,
-    ),
-    ...p.variants.map(
-      ([color, size, price, old, stock]) =>
-        `insert into public.product_variants (product_id, color_id, size_id, sku, barcode, price, compare_at_price)
-           select '${id}', c.id, s.id, upper('GZL-${randomUUID().slice(0, 12)}'), '0${randomUUID().slice(0, 23)}', ${price}, ${old}
-           from public.colors c, public.sizes s where c.slug = '${color}' and s.code = '${size}';
-         update public.inventory set on_hand = ${stock} where variant_id = (
-           select v.id from public.product_variants v
-           join public.colors c on c.id = v.color_id join public.sizes s on s.id = v.size_id
-           where v.product_id = '${id}' and c.slug = '${color}' and s.code = '${size}');`,
-    ),
-  ].join("\n");
-}
-
 test.beforeAll(async () => {
   const [hardal, mavi, ...rest] = await Promise.all(
     ["#f4b942", "#4f86c6", ...Array<string>(27).fill("#cfe8e1")].map(
@@ -108,7 +18,7 @@ test.beforeAll(async () => {
       select 'Kapalı', '${category}-kapali', id, false from public.categories where slug = '${category}';
     insert into public.size_charts (name, category_id, rows)
       select 'Tablo ${tag}', id, '[["Beden","Boy"],["3-6 Ay","62-68"]]' from public.categories where slug = '${category}';
-    ${seed({
+    ${seed(category, {
       name: `Işıltılı İnce Şort ${tag}`,
       slug: `isiltili-${tag}`,
       published: "2030-01-03",
@@ -123,11 +33,11 @@ test.beforeAll(async () => {
         ["mavi", "9-12A", 29990, null, 7],
       ],
     })}
-    ${seed({ name: `Tükenen Hırka ${tag}`, slug: `tukenen-${tag}`, published: "2030-01-05", images: plain(), variants: [["pembe", "3-6A", 5000, null, 0]] })}
-    ${seed({ name: `Pahalı Takım ${tag}`, slug: `pahali-${tag}`, published: "2030-01-04", images: plain(), variants: [["lila", "6-9A", 99990, null, 50]] })}
-    ${seed({ name: `Gizli Taslak ${tag}`, slug: `gizli-${tag}`, status: "draft", images: plain(), variants: [["pembe", "3-6A", 5000, null, 5]] })}
+    ${seed(category, { name: `Tükenen Hırka ${tag}`, slug: `tukenen-${tag}`, published: "2030-01-05", images: plain(), variants: [["pembe", "3-6A", 5000, null, 0]] })}
+    ${seed(category, { name: `Pahalı Takım ${tag}`, slug: `pahali-${tag}`, published: "2030-01-04", images: plain(), variants: [["lila", "6-9A", 99990, null, 50]] })}
+    ${seed(category, { name: `Gizli Taslak ${tag}`, slug: `gizli-${tag}`, status: "draft", images: plain(), variants: [["pembe", "3-6A", 5000, null, 5]] })}
     ${Array.from({ length: 24 }, (_, i) =>
-      seed({
+      seed(category, {
         name: `Sıradan ${tag} ${i}`,
         slug: `siradan-${tag}-${i}`,
         published: "2020-01-01",
@@ -139,27 +49,9 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  const products = "(select product_id from silinecek)";
-  const variants = `(select id from public.product_variants where product_id in ${products})`;
-  sql(`begin;
-    create temp table silinecek on commit drop as
-      select pc.product_id from public.product_categories pc
-      join public.categories c on c.id = pc.category_id where c.slug = '${category}';
-    update public.products set status = 'draft' where id in ${products};
-    set constraints all immediate;
-    alter table public.price_history disable trigger price_history_append_only;
-    delete from public.price_history where variant_id in ${variants};
-    alter table public.price_history enable trigger price_history_append_only;
-    delete from public.product_images where product_id in ${products};
-    delete from public.product_categories where product_id in ${products};
-    delete from public.inventory where variant_id in ${variants};
-    delete from public.product_variants where product_id in ${products};
-    delete from public.products where id in ${products};
-    delete from public.size_charts where name = 'Tablo ${tag}';
-    delete from public.categories where slug = '${category}-kapali';
-    delete from public.categories where slug = '${category}';
-    commit;`);
-  for (const path of images) await storage(path, "DELETE");
+  sql(`delete from public.size_charts where name = 'Tablo ${tag}';
+       delete from public.categories where slug = '${category}-kapali';`);
+  await removeCategory(category);
 });
 
 const cards = (page: Page) =>
@@ -304,7 +196,7 @@ test("ürün: renk ve beden seçimi; gizli bilgi ve betik sızmaz", async ({
     .toBeGreaterThan(0);
 
   const main = page.getByRole("main");
-  const status = main.getByRole("status");
+  const status = main.getByRole("status").first();
   const size = (name: string | RegExp) =>
     page.getByRole("radio", { name, exact: true });
   await expect(status).toContainText("beden seçin");
@@ -416,13 +308,27 @@ test("yavaş telefonda en büyük içerik 2,5 saniyede görünür @yuk", async (
   browser,
 }) => {
   test.slow();
-  for (const path of [
-    "/",
-    `/kategori/${category}`,
-    `/urun/isiltili-${tag}`,
-    `/ara?q=${tag}`,
-  ]) {
+  const buyer = await browser.newContext();
+  const shopping = await buyer.newPage();
+  await shopping.goto(`/urun/pahali-${tag}`);
+  await shopping.getByRole("radio", { name: "6-9 Ay" }).check();
+  await shopping.getByRole("button", { name: "Sepete ekle" }).click();
+  await expect(shopping.getByText("Sepete eklendi.")).toBeVisible();
+  const cart = await buyer.storageState();
+  await buyer.close();
+
+  for (const [path, storageState] of [
+    ["/"],
+    [`/kategori/${category}`],
+    [`/urun/isiltili-${tag}`],
+    [`/ara?q=${tag}`],
+    // Sepeti dolu misafir: her sayfa sepeti de okur.
+    ["/", cart],
+    [`/urun/isiltili-${tag}`, cart],
+    ["/sepet", cart],
+  ] as const) {
     const context = await browser.newContext({
+      storageState,
       viewport: { width: 412, height: 823 },
       deviceScaleFactor: 1.75,
       isMobile: true,
@@ -438,6 +344,7 @@ test("yavaş telefonda en büyük içerik 2,5 saniyede görünür @yuk", async (
     });
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
     await page.goto(path, { waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const { lcp, cls, element } = await page.evaluate(
       () =>
         new Promise<{ lcp: number; cls: number; element: string }>((done) => {
@@ -464,7 +371,7 @@ test("yavaş telefonda en büyük içerik 2,5 saniyede görünür @yuk", async (
         }),
     );
     console.log(
-      `${path.replace(tag, "…")}: LCP ${Math.round(lcp)} ms (${element}), CLS ${cls.toFixed(3)}`,
+      `${path.replace(tag, "…")}${storageState ? " (sepetli)" : ""}: LCP ${Math.round(lcp)} ms (${element}), CLS ${cls.toFixed(3)}`,
     );
     expect(lcp).toBeGreaterThan(0);
     expect(lcp).toBeLessThanOrEqual(2500);

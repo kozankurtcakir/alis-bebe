@@ -11,7 +11,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 | 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Tamam (24.11.2026); proje sahibi onayladı |
 | 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Tamam (25.11.2026); proje sahibi onayladı |
 | 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Tamam (25.11.2026); proje sahibi onayladı |
-| 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Tasarım onayı bekliyor |
+| 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Tamam (25.11.2026); proje sahibi onayladı |
 | 8 | Sipariş, EFT, kapıda ödeme | Geçerli ve yasak tüm durum geçişleri testli | Bekliyor |
 | 9 | Kart ödemesi | Başarılı, red, tekrar, gecikme, sahte bildirim testli | Bekliyor |
 | 10 | Kargo | Çift gönderi yok; manuel yol çalışır | Bekliyor |
@@ -33,6 +33,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 - [ ] Kişisel bakım: hukukçuyla ürün güvenliği ve kozmetik mevzuatı. Netleşene kadar sistem bu ürünleri yayınlamaz.
 - [ ] Mali müşavir: ürün türlerine göre KDV oranları (panelde hazır oran yok)
 - [ ] Hukukçu: üstü çizili "eski fiyat" kuralı (indirimden önceki 30 günün en düşük fiyatı). Netleşene kadar panelde eski fiyat girilmemeli.
+- [ ] Hukukçu: ticari ileti izni metni, KVKK aydınlatma metni, üyelik sözleşmesi. Gelene kadar sitedeki metinler taslaktır ve ileti gönderilmez.
 - [ ] TÜRKPATENT marka araması, ardından `alisbebe.com` satın alma
 - [ ] Hukukçu: yurt dışında veri barındırma (KVKK m.9), ETBİS, İYS, ürün güvenliği, cayma/iade
 - [ ] Mali müşavir: şirket türü, e-Arşiv, KDV, TCKN, kapıda ödeme belgesi
@@ -42,6 +43,12 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 ## Teknik borçlar
 
+- Tarayıcı testleri yoğun bilgisayarda ara sıra düşüyor (25.11.2026: 5 saniye sınırı iki kez, test sürecinin çökmesi bir kez). Testler tek başına geçiyor; kesin neden bulunmadı. Çöken test temizliğini yapamaz, sahte ürünü kalır.
+- Sepet açmaya istek sınırı yok (Aşama 13). Süresi dolan misafir sepetleri, yeni misafir sepeti açıldıkça 100'er silinir.
+- Sepet birleşirken 50 çeşidi aşan misafir ürünleri eklenmez.
+- Sepete 10 adede kadar ekleyerek düşük stok tahmin edilebilir; bilerek kabul edildi.
+- İlçe elle yazılıyor; liste kargo aşamasında (Aşama 10) ele alınacak.
+- Hesap silme Aşama 13'te, hukukçuyla.
 - Olmayan ürün ve kategori sayfası 200 durumuyla ve `noindex` ile döner (Next `cacheComponents` sınırı); gerçek 404 Aşama 13'te SEO ile ele alınacak.
 - Arama sözcük başına bakar, yazım hatasını düzeltmez: "zıbınlar", adı "zıbın" olan ürünü bulmaz.
 - Mağaza aramasına istek sınırı yok; yayın altyapısıyla konacak (Aşama 13).

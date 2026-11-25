@@ -2,16 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { signIn } from "@/modules/auth/actions";
 import { ActionForm } from "@/modules/auth/form";
+import { nextPath } from "@/modules/auth/validation";
 
 export const metadata: Metadata = { title: "Giriş" };
 
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: PageProps<"/giris">) {
+  const next = nextPath((await searchParams).sonra);
+
   return (
     <>
       <h1 className="font-baslik text-3xl font-bold">Giriş yap</h1>
       <ActionForm
         action={signIn}
         submit="Giriş yap"
+        hidden={next ? { sonra: next } : {}}
         fields={[
           {
             name: "email",

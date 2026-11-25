@@ -88,8 +88,9 @@ select set_eq(
   $$ select p.proname::text from pg_proc p
      where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
        and has_function_privilege('anon', p.oid, 'execute') $$,
-  array['shop_categories', 'shop_products', 'shop_facets', 'shop_product'],
-  'ziyaretçi yalnızca mağaza fonksiyonlarını çalıştırabilir');
+  array['shop_categories', 'shop_products', 'shop_facets', 'shop_product',
+    'cart_count', 'cart_get', 'cart_add', 'cart_set'],
+  'ziyaretçi yalnızca mağaza ve sepet fonksiyonlarını çalıştırabilir');
 
 select set_eq(
   $$ select p.proname::text from pg_proc p
@@ -100,6 +101,8 @@ select set_eq(
     'adjust_stock', 'reverse_stock_movement', 'set_critical_level', 'list_stock', 'stock_summary',
     'list_stock_movements', 'import_lookup', 'create_import', 'apply_import', 'list_imports',
     'search_products', 'shop_categories', 'shop_products', 'shop_facets', 'shop_product',
+    'cart_count', 'cart_get', 'cart_add', 'cart_set', 'cart_merge',
+    'set_favorite', 'is_favorite', 'list_favorites', 'save_address', 'delete_address', 'set_consent',
     'is_active_session', 'has_permission', 'fold_tr'],
   'giriş yapan kullanıcı yalnızca listedeki fonksiyonları çalıştırabilir');
 

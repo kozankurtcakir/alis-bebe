@@ -31,6 +31,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
+    "/ara",
+    "/kategori/:path*",
+    "/urun/:path*",
+    "/sepet",
     "/giris",
     "/kayit",
     "/onay",

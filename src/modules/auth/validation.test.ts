@@ -3,6 +3,7 @@ import {
   codeSchema,
   emailLinkSchema,
   newPasswordSchema,
+  nextPath,
   signUpSchema,
 } from "./validation";
 
@@ -59,4 +60,28 @@ test("e-posta bağlantısında yalnızca bilinen türler geçer", () => {
   expect(
     emailLinkSchema.safeParse({ token_hash, type: "invite" }).success,
   ).toBe(false);
+});
+
+describe("girişten sonra dönülecek sayfa", () => {
+  test.each(["/sepet", "/urun/isikli-zibin-2"])("%s kabul edilir", (path) => {
+    expect(nextPath(path)).toBe(path);
+  });
+  test.each([
+    "",
+    "/",
+    "//kotu.example",
+    "https://kotu.example",
+    "/urun/../yonetim",
+    "/urun//kotu.example",
+    "/urun/a?x=//kotu.example",
+    "/sepet/..",
+    "/sepet%0A",
+    `/sepet${String.fromCharCode(10)}`,
+    "/yonetim",
+    null,
+    undefined,
+    ["/sepet"],
+  ])("%j reddedilir", (path) => {
+    expect(nextPath(path)).toBeNull();
+  });
 });

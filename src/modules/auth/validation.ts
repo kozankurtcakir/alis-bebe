@@ -45,3 +45,10 @@ export const emailLinkSchema = z.object({
   token_hash: z.string().regex(/^[A-Za-z0-9_-]{10,200}$/),
   type: z.enum(["email", "recovery"]),
 });
+
+/** Girişten sonra dönülecek sayfa; yalnızca kendi sitemizdeki bilinen adresler. */
+export const nextPath = (value: unknown) =>
+  typeof value === "string" &&
+  /^\/(sepet|urun\/[a-z0-9]+(-[a-z0-9]+)*)$/.test(value)
+    ? value
+    : null;

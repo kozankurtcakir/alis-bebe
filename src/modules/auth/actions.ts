@@ -1,15 +1,18 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase";
+import { mergeGuestCart } from "@/modules/cart/guest";
 import { requireUser } from "./access";
 import {
   codeSchema,
   emailLinkSchema,
   emailSchema,
   newPasswordSchema,
+  nextPath,
   signInSchema,
   signUpSchema,
 } from "./validation";
@@ -89,12 +92,17 @@ export async function signIn(_: FormState, form: FormData): Promise<FormState> {
         : "Hesabınız kullanıma kapalı. Mağazayla iletişime geçin.",
     };
   }
-  redirect(access.is_staff ? "/iki-adim" : "/hesap");
+  await mergeGuestCart(supabase);
+  revalidatePath("/", "layout");
+  redirect(
+    access.is_staff ? "/iki-adim" : (nextPath(form.get("sonra")) ?? "/hesap"),
+  );
 }
 
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
+  revalidatePath("/", "layout");
   redirect("/giris");
 }
 
@@ -124,6 +132,8 @@ export async function confirmEmailLink(
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp(data);
   if (error) return expired;
+  await mergeGuestCart(supabase);
+  revalidatePath("/", "layout");
   redirect(data.type === "recovery" ? "/sifre-yenile" : "/hesap");
 }
 
