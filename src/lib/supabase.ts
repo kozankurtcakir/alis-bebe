@@ -1,8 +1,25 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { cookieOptions, env } from "./env";
+
+/** Ziyaretçi yetkisiyle çalışır; oturum ve çerez okumaz. */
+export async function createPublicClient() {
+  await connection(); // Fiyat ve stok her istekte güncel okunur; derleme veritabanı istemez.
+  return createSupabaseClient(
+    env().SUPABASE_URL,
+    env().SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    },
+  );
+}
 
 /** Giriş yapan kişinin yetkisiyle çalışan istemci; RLS her sorguda geçerlidir. */
 export async function createClient() {

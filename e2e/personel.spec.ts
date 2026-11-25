@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  expectInHistory,
   grantRole,
   newEmail,
   removeSuperAdmin,
@@ -15,22 +16,6 @@ async function addStaff(page: Page, email: string, role: string) {
   await page.getByLabel("Üyenin e-postası").fill(email);
   await page.getByLabel("Rol", { exact: true }).selectOption({ label: role });
   await page.getByRole("button", { name: "Ekle", exact: true }).click();
-}
-
-/** Paralel testler de kayıt yazar; aranan kayıt sonraki sayfalara kaymış olabilir. */
-async function expectInHistory(page: Page, email: string, text: string) {
-  const entry = page
-    .getByRole("listitem")
-    .filter({ hasText: email })
-    .getByText(text);
-  for (let n = 1; n <= 10; n++) {
-    await page.goto(`/yonetim/islem-gecmisi?sayfa=${n}`);
-    await expect(
-      page.getByRole("heading", { name: "İşlem geçmişi" }),
-    ).toBeVisible();
-    if ((await entry.count()) > 0) return expect(entry).toBeVisible();
-  }
-  throw new Error(`İşlem geçmişinde bulunamadı: ${text}`);
 }
 
 test("Super Admin personeli yönetir, Admin sınırını aşamaz", async ({

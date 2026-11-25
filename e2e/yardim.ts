@@ -11,8 +11,12 @@ export const newEmail = () => `test-${randomUUID()}@ornek.test`;
 export function sql(query: string) {
   return execFileSync(
     "docker",
-    ["exec", "supabase_db_alis-bebe", "psql", "-U", "postgres", "-qAtc", query],
-    { encoding: "utf8" },
+    // Sorgu standart girdiden gider; komut satırının uzunluk sınırına takılmaz.
+    [
+      ...["exec", "-i", "supabase_db_alis-bebe", "psql", "-U", "postgres"],
+      ...["-qAt", "-v", "ON_ERROR_STOP=1"],
+    ],
+    { encoding: "utf8", input: query },
   ).trim();
 }
 
@@ -111,4 +115,24 @@ export async function setUpMfa(page: Page) {
   await page.getByRole("button", { name: "Doğrula" }).click();
   await expect(page).toHaveURL("/yonetim");
   return secret;
+}
+
+/** Paralel testler de kayıt yazar; aranan kayıt sonraki sayfalara kaymış olabilir. */
+export async function expectInHistory(
+  page: Page,
+  subject: string,
+  text: string,
+) {
+  const entry = page
+    .getByRole("listitem")
+    .filter({ hasText: subject })
+    .getByText(text);
+  for (let n = 1; n <= 20; n++) {
+    await page.goto(`/yonetim/islem-gecmisi?sayfa=${n}`);
+    await expect(
+      page.getByRole("heading", { name: "İşlem geçmişi" }),
+    ).toBeVisible();
+    if ((await entry.count()) > 0) return expect(entry).toBeVisible();
+  }
+  throw new Error(`İşlem geçmişinde bulunamadı: ${text}`);
 }

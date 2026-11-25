@@ -32,7 +32,7 @@ Durum: taslak onaylandı. Aşama 2'de yalnızca o aşamanın tabloları kurulur;
 | `brands` | `name`, `slug` | Benzersiz |
 | `colors` | `name`, `hex`, `slug`, `code` | Benzersiz; `code` SKU önerisinde kullanılır |
 | `sizes` | `size_group`, `name`, `code`, `age_min_months?`, `age_max_months?`, `sort_order` | Grup: `baby`, `child`, `adult`, `volume`, `one_size` |
-| `products` | `product_no`, `name`, `slug`, `description`, `product_type`, `audience`, `brand_id?`, `material`, `care?`, `gender`, `vat_bps`, `status`, `archived_at?` | `status`: `draft`, `published`, `archived`; yalnızca `set_product_status` ile değişir. `product_type`: `clothing`, `personal_care` (yayınlanamaz) |
+| `products` | `product_no`, `name`, `slug`, `description`, `product_type`, `audience`, `brand_id?`, `material`, `care?`, `gender`, `vat_bps`, `status`, `published_at?`, `archived_at?` | `status`: `draft`, `published`, `archived`; yalnızca `set_product_status` ile değişir. `product_type`: `clothing`, `personal_care` (yayınlanamaz) |
 | `product_categories` | `product_id`, `category_id`, `is_primary` | Ürün başına tek ana kategori |
 | `product_variants` | `product_id`, `color_id?`, `size_id?`, `sku`, `barcode?`, `price`, `compare_at_price?`, `desi?`, `is_active` | `(product, color, size)` ve `sku` benzersiz; barkod doluysa benzersiz ve metin |
 | `variant_costs` | `variant_id`, `cost` | Yalnızca `costs.read` izni |
@@ -41,6 +41,8 @@ Durum: taslak onaylandı. Aşama 2'de yalnızca o aşamanın tabloları kurulur;
 | `size_charts` | `name`, `category_id?`, `rows jsonb` | Boy/kilo tablosu |
 
 Yayın şartı: açıklama, malzeme, ana kategori, aktif varyant (giyimde renk ve bedenli) ve görsel. Şart, yayındayken de işlem sonunda denetlenir. Ürün ve varyant silinmez. Katalog değişiklikleri `audit_logs`'a yazılır.
+
+Mağaza (Aşama 6): `anon` hiçbir tabloyu okuyamaz. `shop_categories`, `shop_products`, `shop_facets` ve `shop_product` yalnızca yayındaki ürünün seçilmiş alanlarını verir; stok `in`, `low`, `out` olarak görünür. Kategori, kendisi ve bütün üstleri aktifse görünür. Arama `private.fold_tr` ile büyük/küçük harf, İ/I/ı/i ve aksan farkını kaldırır; panel araması da bunu kullanır. `published_at` ilk yayında yazılır.
 
 ## Stok (Aşama 4)
 

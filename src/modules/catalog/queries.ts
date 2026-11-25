@@ -88,29 +88,24 @@ export async function listProducts(filter: {
   page: number;
 }) {
   const supabase = await createClient();
-  // Yalnızca harf, rakam, boşluk ve tire kalır; süzgeç ifadesine karışamaz.
-  const query = filter.query.replace(/[^\p{L}\p{N} -]/gu, " ").trim();
+  const query = filter.query.trim();
 
   const from = (filter.page - 1) * PRODUCT_PAGE_SIZE;
-  let request = supabase
-    .from("products")
-    .select("id, name, status, product_variants(count), product_images(path)")
+  let request = (
+    query
+      ? supabase.rpc("search_products", { p_query: query })
+      : supabase.from("products")
+  )
+    // Fonksiyon sonucu yalnızca seçilen alanlarla sıralanabilir.
+    .select(
+      "id, created_at, name, status, product_variants(count), product_images(path)",
+    )
     .order("created_at", { ascending: false })
     .order("id")
     .order("sort_order", { referencedTable: "product_images" })
     .limit(1, { referencedTable: "product_images" })
     .range(from, from + PRODUCT_PAGE_SIZE);
   if (filter.status) request = request.eq("status", filter.status);
-  if (query) {
-    const { data, error } = await supabase
-      .from("product_variants")
-      .select("product_id")
-      .or(`sku.ilike.${query}%,barcode.eq.${query}`)
-      .limit(100);
-    if (error) throw new Error(`Ürün aranamadı: ${error.code}`);
-    const ids = [...new Set(data.map((v) => v.product_id as string))];
-    request = request.or(`name.ilike.%${query}%,id.in.(${ids.join(",")})`);
-  }
 
   const { data, error } = await request;
   if (error) throw new Error(`Ürünler okunamadı: ${error.code}`);

@@ -10,8 +10,8 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 | 3 | Katalog paneli | Yinelenen SKU ve sahte görsel reddedilir | Tamam (24.11.2026); proje sahibi onayladı |
 | 4 | Stok | 50 eşzamanlı istekte stok eksiye düşmez; hareket toplamı stoğa eşit | Tamam (24.11.2026); proje sahibi onayladı |
 | 5 | Excel | Hatalı dosya veri değiştirmez; baştaki sıfır korunur | Tamam (25.11.2026); proje sahibi onayladı |
-| 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Kuruluyor |
-| 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Bekliyor |
+| 6 | Mağaza | "İ/ı" araması doğru; WCAG 2.2 AA; mobil LCP ≤ 2,5 sn hedefi | Tamam (25.11.2026); proje sahibi onayladı |
+| 7 | Üyelik ve sepet | Sepet birleşir; başkasının verisine erişim reddedilir | Tasarım onayı bekliyor |
 | 8 | Sipariş, EFT, kapıda ödeme | Geçerli ve yasak tüm durum geçişleri testli | Bekliyor |
 | 9 | Kart ödemesi | Başarılı, red, tekrar, gecikme, sahte bildirim testli | Bekliyor |
 | 10 | Kargo | Çift gönderi yok; manuel yol çalışır | Bekliyor |
@@ -32,6 +32,7 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 - [ ] Kişisel bakım: hukukçuyla ürün güvenliği ve kozmetik mevzuatı. Netleşene kadar sistem bu ürünleri yayınlamaz.
 - [ ] Mali müşavir: ürün türlerine göre KDV oranları (panelde hazır oran yok)
+- [ ] Hukukçu: üstü çizili "eski fiyat" kuralı (indirimden önceki 30 günün en düşük fiyatı). Netleşene kadar panelde eski fiyat girilmemeli.
 - [ ] TÜRKPATENT marka araması, ardından `alisbebe.com` satın alma
 - [ ] Hukukçu: yurt dışında veri barındırma (KVKK m.9), ETBİS, İYS, ürün güvenliği, cayma/iade
 - [ ] Mali müşavir: şirket türü, e-Arşiv, KDV, TCKN, kapıda ödeme belgesi
@@ -41,12 +42,15 @@ Her aşamada ortak kriter: testler geçer, kritik güvenlik bulgusu kalmaz, gös
 
 ## Teknik borçlar
 
-- Panel araması "İ/ı" farkını tam gözetmiyor; Türkçe arama Aşama 6'da kurulacak.
+- Olmayan ürün ve kategori sayfası 200 durumuyla ve `noindex` ile döner (Next `cacheComponents` sınırı); gerçek 404 Aşama 13'te SEO ile ele alınacak.
+- Arama sözcük başına bakar, yazım hatasını düzeltmez: "zıbınlar", adı "zıbın" olan ürünü bulmaz.
+- Mağaza aramasına istek sınırı yok; yayın altyapısıyla konacak (Aşama 13).
+- Ürün veya kategori adresi değişirse eski bağlantı çalışmaz; yönlendirme Aşama 13'te.
 - Aynı ürünü iki kişi aynı anda düzenlerse son kaydeden geçerli olur; önceki değer işlem geçmişinde kalır.
 - Depoya yükleme yetkisi olan personel, paneli atlayıp WebP diye işaretlenmiş başka içerik yükleyebilir; site bunu yalnızca görsel olarak sunar (`nosniff`).
 - ESLint 9 destek dışı; Next eklentileri ESLint 10'u destekleyince yükseltilecek (yalnızca geliştirme aracı).
 - CSP `script-src 'unsafe-inline'` içeriyor; Aşama 13'te sıkılaştırılacak.
-- `favicon.ico` şablondan geliyor; logo kararıyla değişecek (Aşama 6).
+- `icon.svg` geçicidir; logo kararıyla değişecek.
 - GitHub deposu şimdilik herkese açık (proje sahibi 24.11.2026'da bilerek kabul etti); mümkün olunca özel yapılacak.
 - Yerel Supabase portları `0.0.0.0` üzerinde açılıyor; Docker'ın gelen bağlantı izni kapatılmadan ortak ağda çalıştırılmaz.
 - `audit_logs.ip` henüz doldurulmuyor; güvenilir istemci IP'si yayın altyapısıyla belirlenecek (Aşama 13).

@@ -4,6 +4,7 @@ const url = "http://localhost:3100";
 
 export default defineConfig({
   testDir: "./e2e",
+  globalTeardown: "./e2e/temizlik.ts",
   forbidOnly: !!process.env.CI,
   use: { baseURL: url, locale: "tr-TR" },
   projects: [

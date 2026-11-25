@@ -3,7 +3,14 @@ import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
-import { grantRole, newEmail, setUpMfa, signUpAndConfirm, sql } from "./yardim";
+import {
+  expectInHistory,
+  grantRole,
+  newEmail,
+  setUpMfa,
+  signUpAndConfirm,
+  sql,
+} from "./yardim";
 
 const run = promisify(execFile);
 
@@ -237,9 +244,7 @@ test("Ürün Yöneticisi ürün hazırlar; hatalı girişler reddedilir", async 
         )
         .toBe(cost === "90" ? "9000" : "9550");
     }
-    await admin.goto("/yonetim/islem-gecmisi");
-    const entries = admin.getByRole("listitem").filter({ hasText: suggested });
-    await expect(entries.getByText("Maliyet: 90,00 → 95,50")).toBeVisible();
+    await expectInHistory(admin, suggested, "Maliyet: 90,00 → 95,50");
 
     // Taslakta son görsel silinebilir; dosya da gider.
     await page.goto(url);

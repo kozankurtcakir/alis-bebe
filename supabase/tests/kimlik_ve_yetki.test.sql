@@ -81,9 +81,15 @@ select is_empty(
 select is_empty(
   $$ select p.oid::regprocedure from pg_proc p
      where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
-       and (has_function_privilege('anon', p.oid, 'execute')
-         or has_function_privilege('service_role', p.oid, 'execute')) $$,
-  'anon ve service_role hiçbir fonksiyonu çalıştıramaz');
+       and has_function_privilege('service_role', p.oid, 'execute') $$,
+  'service_role hiçbir fonksiyonu çalıştıramaz');
+
+select set_eq(
+  $$ select p.proname::text from pg_proc p
+     where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
+       and has_function_privilege('anon', p.oid, 'execute') $$,
+  array['shop_categories', 'shop_products', 'shop_facets', 'shop_product'],
+  'ziyaretçi yalnızca mağaza fonksiyonlarını çalıştırabilir');
 
 select set_eq(
   $$ select p.proname::text from pg_proc p
@@ -93,7 +99,8 @@ select set_eq(
     'list_staff', 'find_user_by_email', 'list_audit_logs', 'set_product_status', 'set_product_categories',
     'adjust_stock', 'reverse_stock_movement', 'set_critical_level', 'list_stock', 'stock_summary',
     'list_stock_movements', 'import_lookup', 'create_import', 'apply_import', 'list_imports',
-    'is_active_session', 'has_permission'],
+    'search_products', 'shop_categories', 'shop_products', 'shop_facets', 'shop_product',
+    'is_active_session', 'has_permission', 'fold_tr'],
   'giriş yapan kullanıcı yalnızca listedeki fonksiyonları çalıştırabilir');
 
 select is_empty(
